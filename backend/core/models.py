@@ -42,6 +42,28 @@ class ProposalStatus(str, Enum):
     REJECTED = "Refusé"
 
 
+class ProductType(str, Enum):
+    """
+    Intrants nutritionnels selon le Protocole National PCIMA (Burkina Faso) / Gamme Nutriset :
+    - F-75  : Phase 1 (Stabilisation en hospitalisation CRENI)
+    - PPN   : Pâte Prête à l'Emploi (Plumpy'Nut / ATPE) - Transition & Ambulatoire
+    - F-100 : Lait thérapeutique de rattrapage / Alternative en cas de refus du PPN
+    """
+    PPN = "PPN"     # Pâte Prête à l'Emploi / Plumpy'Nut (sachets)
+    F75 = "F-75"    # Lait Thérapeutique F-75 (boîtes / sachets de poudre)
+    F100 = "F-100"  # Lait Thérapeutique F-100 (boîtes / sachets de poudre)
+
+
+class FacilityType(str, Enum):
+    """
+    Niveau de prise en charge dans le système sanitaire :
+    - CRENI_HOSPITAL : CHU, CHUP, CMA avec hospitalisation des cas compliqués (F-75, F-100, PPN)
+    - CRENAS_CSPS    : CSPS en ambulatoire pour les cas sans complications (PPN)
+    """
+    CRENI_HOSPITAL = "CRENI_HOSPITAL"
+    CRENAS_CSPS = "CRENAS_CSPS"
+
+
 @dataclass(frozen=True)
 class CenterStock:
     """
@@ -50,11 +72,13 @@ class CenterStock:
     """
     center_id: str
     center_name: str
-    physical_stock: int         # Stock physique (sachets ATPE/RUTF)
+    physical_stock: int         # Stock physique (sachets PPN ou boîtes F-75/F-100)
     reserved_stock: int         # Stock réservé estimé (enfants déjà sous traitement)
     security_stock: int         # Stock de sécurité
-    daily_consumption: float    # Consommation quotidienne observée (sachets/jour)
+    daily_consumption: float    # Consommation quotidienne observée (unités/jour)
     last_updated_at: datetime   # Date/heure du dernier relevé (SEE)
+    product_type: ProductType = ProductType.PPN
+    facility_type: FacilityType = FacilityType.CRENAS_CSPS
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
@@ -85,6 +109,7 @@ class CenterDiagnosis:
     risk_level: RiskLevel
     freshness_status: FreshnessStatus
     data_age_hours: float
+    product_type: ProductType = ProductType.PPN
     evaluated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> Dict[str, Any]:
@@ -92,6 +117,7 @@ class CenterDiagnosis:
         data = asdict(self)
         data["risk_level"] = self.risk_level.value
         data["freshness_status"] = self.freshness_status.value
+        data["product_type"] = self.product_type.value
         data["evaluated_at"] = self.evaluated_at.isoformat()
         return data
 
@@ -130,12 +156,13 @@ class TransferProposal:
     recipient_center_name: str
     donor_center_id: str
     donor_center_name: str
-    quantity: int                       # Nombre de sachets proposés
+    quantity: int                       # Nombre d'unités (sachets PPN ou boîtes F-75/F-100)
     distance_km: Optional[float]        # Distance estimée entre les deux centres
     recipient_impact: SimulationImpact  # Avant/après pour le demandeur
     donor_impact: SimulationImpact      # Avant/après pour le donneur (vérification non-fragilisation)
     score: float                        # Score multicritère d'aide à la décision
     rationale: str                      # Justification claire et explicable pour le MCD
+    product_type: ProductType = ProductType.PPN
     status: ProposalStatus = ProposalStatus.PENDING
     decision_reason: Optional[str] = None
     decided_at: Optional[datetime] = None
@@ -151,6 +178,7 @@ class TransferProposal:
             "donor_center_name": self.donor_center_name,
             "quantity": self.quantity,
             "distance_km": self.distance_km,
+            "product_type": self.product_type.value,
             "recipient_impact": self.recipient_impact.to_dict(),
             "donor_impact": self.donor_impact.to_dict(),
             "score": round(self.score, 2),

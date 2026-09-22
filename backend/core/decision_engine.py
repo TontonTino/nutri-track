@@ -22,6 +22,7 @@ from core.models import (
     CenterDiagnosis,
     RiskLevel,
     FreshnessStatus,
+    ProductType,
 )
 
 # Paramètres de démonstration selon le Cahier des Charges (Section 4.3)
@@ -198,5 +199,69 @@ def diagnose_center(
         risk_level=risk,
         freshness_status=freshness_status,
         data_age_hours=age_hours,
+        product_type=center.product_type,
         evaluated_at=current_time or datetime.now(timezone.utc)
     )
+
+
+def estimate_clinical_reserved_stock(
+    active_children_phase1: int,
+    active_children_transition: int,
+    active_children_ambulatory: int,
+    product_type: ProductType = ProductType.PPN,
+    horizon_days: int = 14,
+    ppn_refusal_rate: float = 0.15
+) -> int:
+    """
+    Calcule le Stock Réservé prédictif selon les phases cliniques du Protocole National PCIMA :
+
+    1. Phase 1 (Stabilisation hospitalière CRENI) :
+       - Intrant exclusif : Lait Thérapeutique F-75.
+       - Règle clinique : 1 boîte de F-75 couvre ~2.5 jours pour un enfant stabilisé (~0.4 boîte/jour).
+       - Durée moyenne Phase 1 : min(horizon_days, 5) jours.
+
+    2. Phase de Transition (CRENI) :
+       - Intrant principal : PPN (Plumpy'Nut) combiné au F-75 (~2 sachets PPN / jour).
+       - Alternative si refus / échec test d'appétit (taux observé ~15%) : Relais au Lait F-100 (~0.4 boîte/jour).
+
+    3. CRENAS ambulatoire (CSPS) :
+       - Intrant exclusif : PPN (Plumpy'Nut) à raison de 3 sachets/jour/enfant sur la période.
+
+    Args:
+        active_children_phase1: Enfants admis en Phase 1 (F-75)
+        active_children_transition: Enfants en phase de transition (F-75 + PPN ou F-100)
+        active_children_ambulatory: Enfants suivis en ambulatoire CRENAS (PPN)
+        product_type: Produit cible pour lequel on calcule la réservation
+        horizon_days: Horizon de prévision en jours (défaut: 14 jours)
+        ppn_refusal_rate: Proportion d'enfants refusant le PPN nécessitant le F-100 (défaut: 15%)
+
+    Returns:
+        int: Quantité d'intrants réservée incompressible pour assurer la continuité des soins
+    """
+    if horizon_days <= 0:
+        return 0
+
+    if product_type == ProductType.F75:
+        # F-75 consommé en Phase 1 (environ 0.4 boîte/jour) et résiduel en début de transition (0.2 boîte/jour)
+        phase1_days = min(horizon_days, 5)
+        trans_days = min(max(0, horizon_days - phase1_days), 3)
+        boxes_phase1 = active_children_phase1 * 0.4 * phase1_days
+        boxes_trans = active_children_transition * 0.2 * trans_days
+        return int(round(boxes_phase1 + boxes_trans))
+
+    elif product_type == ProductType.F100:
+        # F-100 réservé pour les enfants qui refusent le PPN en transition (~15% des cas)
+        transition_refusers = active_children_transition * ppn_refusal_rate
+        trans_days = min(horizon_days, 7)
+        boxes_f100 = transition_refusers * 0.4 * trans_days
+        return max(1, int(round(boxes_f100))) if active_children_transition > 0 else 0
+
+    elif product_type == ProductType.PPN:
+        # PPN consommé par les enfants en ambulatoire (3 sachets/j) et les enfants en transition qui acceptent le PPN (2 sachets/j)
+        ppn_accepting_trans = active_children_transition * (1.0 - ppn_refusal_rate)
+        sachets_trans = ppn_accepting_trans * 2.0 * min(horizon_days, 7)
+        sachets_ambulatory = active_children_ambulatory * 3.0 * horizon_days
+        return int(round(sachets_trans + sachets_ambulatory))
+
+    return 0
+

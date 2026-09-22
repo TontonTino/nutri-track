@@ -27,6 +27,7 @@ from core.models import (
     RiskLevel,
     ProposalStatus,
     FreshnessStatus,
+    ProductType,
 )
 from core.decision_engine import (
     calculate_mobilizable_stock,
@@ -247,6 +248,10 @@ class NutriSwitchOptimizer:
             if candidate.center_id == recipient.center_id:
                 continue
 
+            # Règle de compatibilité produit : le donneur doit proposer le même intrant (PPN, F-75, F-100)
+            if candidate.product_type != recipient.product_type:
+                continue
+
             # Règle d'exclusion : un centre en risque de rupture ne peut pas être donneur
             cand_diag = diagnose_center(candidate)
             if cand_diag.risk_level == RiskLevel.RISK_OF_STOCKOUT:
@@ -294,8 +299,9 @@ class NutriSwitchOptimizer:
             )
 
             # Rationale explicable pour le Médecin Chef de District (MCD)
+            unit_label = "sachets" if recipient.product_type == ProductType.PPN else "boîtes"
             rationale = (
-                f"Transfert recommandé de {transfer_qty} sachets depuis {candidate.center_name} "
+                f"Transfert recommandé de {transfer_qty} {unit_label} ({recipient.product_type.value}) depuis {candidate.center_name} "
                 f"vers {recipient.center_name}. "
                 f"Permet à {recipient.center_name} de passer de {recip_impact.initial_jcm}j à {recip_impact.final_jcm}j "
                 f"({recip_impact.final_risk.value}), tout en maintenant {candidate.center_name} à {donor_impact.final_jcm}j "
@@ -314,6 +320,7 @@ class NutriSwitchOptimizer:
                 donor_impact=donor_impact,
                 score=score,
                 rationale=rationale,
+                product_type=recipient.product_type,
                 status=ProposalStatus.PENDING
             )
             proposals.append(proposal)

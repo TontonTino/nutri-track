@@ -2,12 +2,15 @@
 Package core de NUTRI-TRACK.
 Responsable : KIEMDE Alya
 Moteur de décision + NUTRI-SWITCH + Logique Métier.
+Supporte le protocole PCIMA Multi-Intrants (F-75, F-100, PPN).
 """
 
 from core.models import (
     RiskLevel,
     FreshnessStatus,
     ProposalStatus,
+    ProductType,
+    FacilityType,
     CenterStock,
     CenterDiagnosis,
     SimulationImpact,
@@ -19,6 +22,7 @@ from core.decision_engine import (
     classify_risk,
     evaluate_data_freshness,
     diagnose_center,
+    estimate_clinical_reserved_stock,
     DEFAULT_THRESHOLD_STABLE_JCM,
     DEFAULT_THRESHOLD_RISK_JCM,
     DEFAULT_MAX_DATA_AGE_HOURS,
@@ -35,10 +39,12 @@ from core.nutri_switch import (
 )
 
 __all__ = [
-    # Models
+    # Models & Enums
     "RiskLevel",
     "FreshnessStatus",
     "ProposalStatus",
+    "ProductType",
+    "FacilityType",
     "CenterStock",
     "CenterDiagnosis",
     "SimulationImpact",
@@ -49,6 +55,7 @@ __all__ = [
     "classify_risk",
     "evaluate_data_freshness",
     "diagnose_center",
+    "estimate_clinical_reserved_stock",
     "DEFAULT_THRESHOLD_STABLE_JCM",
     "DEFAULT_THRESHOLD_RISK_JCM",
     "DEFAULT_MAX_DATA_AGE_HOURS",
