@@ -1,102 +1,135 @@
-# NUTRI-TRACK — Guide & Fiche de Collecte de Données Terrain
-**Projet :** IDEAthon Digital Impact Challenge 2026  
-**Établissement :** ISGE-BF  
+# NUTRI-TRACK — Fiche de Collecte Terrain & Grille d'Enquête Opérationnelle
+**Projet :** IDEAthon Digital Impact Challenge 2026 | **Établissement :** ISGE-BF  
 **Équipe :** KABA Fanta, KIEMDE Alya, KABRE Rasmata, NITIEMA Lionel  
-**Cadre :** Enquête auprès des structures sanitaires de référence (CHU Bogodogo, CHUP Charles de Gaulle, CMA Saaba, CMA Boulmiougou)
+**Cadre :** Enquête de terrain (CHU Bogodogo, CHUP Charles de Gaulle, CMA Saaba, CMA Boulmiougou)
 
 ---
 
-## 📋 Protocole de Visite & Éthique
-1. **Présentation :** Remettre la lettre officielle signée par la Direction Générale de l'ISGE-BF.
-2. **Confidentialité absolue :** Préciser immédiatement qu'**aucune donnée nominative ou médicale individuelle d'enfants n'est demandée**. Seules des données **agrégées, logistiques et opérationnelles** sur les intrants nutritionnels (ATPE / RUTF / Plumpy'Nut) sont collectées.
-3. **Interlocuteurs cibles :** 
-   - Le Médecin-Chef de District (MCD) ou son adjoint
-   - Le Pharmacien / Gestionnaire du Dépôt Répartiteur du District
-   - Le Responsable de l'Unité Nutritionnelle (CREN / CRENI / CRENAS)
+## 🎯 Les 3 Objectifs de la Visite
+1. **Les Données :** Identifier les données réelles existantes, leur granularité (hebdomadaire ou mensuelle) et leur fiabilité.
+2. **Le Processus Réel :** Cartographier la chaîne exacte de décision lors d'une tension de stock (qui constate, qui alerte, qui valide, quel délai).
+3. **Les Contraintes Métier :** Recueillir les règles non écrites (ex: seuils minimaux de réserve, refus de transfert au-delà d'une distance ou d'un quota).
+
+> **Note éthique à rappeler à l'interlocuteur :**  
+> *« Notre étude porte exclusivement sur la logistique des intrants nutritionnels (ATPE / RUTF / Plumpy'Nut). Aucune donnée médicale individuelle ni aucun nom d'enfant n'est collecté. »*
 
 ---
 
-# PARTIE A : FICHE DE COLLECTE DES DONNÉES LOGISTIQUES (Remplissage)
+# SECTION 1 : IDENTIFICATION & CONTEXTE DE LA STRUCTURE
 
-### 1. Identification de la Structure
-- **Nom de la structure visitée :** __________________________________________________
-- **Type de structure :** [ ] CHU / CHUP  [ ] CMA / District  [ ] CSPS
-- **Nom et fonction de l'interlocuteur :** ____________________________________________
-- **Date de l'entretien :** _____ / _____ / 2026
-
----
-
-### 2. Gestion des Intrants Nutritionnels (RUTF / ATPE / Plumpy'Nut)
-- **Unité de gestion usuelle :** 
-  [ ] Cartons (combien de sachets par carton ? : ________ )  
-  [ ] Sachets individuels
-- **Stock physique actuel :** ________ cartons (soit ________ sachets)
-- **Stock de sécurité officiel configuré :** ________ jours de consommation (ou ________ cartons)
-- **Règles de réserve :** Existe-t-il une quantité réservée pour les enfants déjà admis en traitement ? 
-  [ ] Oui  [ ] Non  
-  *Si oui, comment est-elle estimée ?* __________________________________________________
+- **Structure visitée :** ____________________________________________________________________
+- **Type de centre :** [ ] CHU / CHUP &nbsp;&nbsp;&nbsp; [ ] CMA / Hôpital de District &nbsp;&nbsp;&nbsp; [ ] CSPS &nbsp;&nbsp;&nbsp; [ ] Autre : _________
+- **Interlocuteur principal :** ___________________________ **Fonction :** ___________________________
+- **Date de l'entretien :** _____ / _____ / 2026 &nbsp;&nbsp;&nbsp; **Enquêteur(s) ISGE :** ___________________________
+- **Outil actuel de gestion du stock :**  
+  [ ] Registre papier &nbsp;&nbsp;&nbsp; [ ] Fiches de stock cartonnées &nbsp;&nbsp;&nbsp; [ ] Logiciel local / Excel &nbsp;&nbsp;&nbsp; [ ] DHIS2 / e-SIGL &nbsp;&nbsp;&nbsp; [ ] Autre : _________
+- **Fréquence de mise à jour des données :**  
+  [ ] Quotidienne &nbsp;&nbsp;&nbsp; [ ] Hebdomadaire &nbsp;&nbsp;&nbsp; [ ] Mensuelle &nbsp;&nbsp;&nbsp; [ ] Irrégulière / lors des réapprovisionnements
 
 ---
 
-### 3. Flux & Consommations (Reconstitution sur les 3 à 6 derniers mois)
-*Remplir si possible pour les mois récents (ou moyenne mensuelle) :*
+# SECTION 2 : ÉTATS DES LIEUX DES STOCKS & SEUILS RÉELS
 
-| Mois / Période | Stock Initial (cartons) | Entrées / Livraisons reçues (cartons) | Sorties / Distributions réalisées (cartons) | Stock Final en rayon (cartons) | Nombre d'enfants en file active |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Mois M-3** | | | | | |
-| **Mois M-2** | | | | | |
-| **Mois M-1** | | | | | |
-| **Mois en cours**| | | | | | |
+### 2.1 Unités et Stock Actuel
+- **Unité usuelle de comptage :**  
+  [ ] Cartons (1 carton standard = _______ sachets) &nbsp;&nbsp;&nbsp; [ ] Sachets individuels
+- **Stock physique disponible à ce jour :** ________ cartons (soit ________ sachets)
+- **Source de ce chiffre :** [ ] Comptage visuel &nbsp;&nbsp;&nbsp; [ ] Fiche de stock &nbsp;&nbsp;&nbsp; [ ] Déclaration orale &nbsp;&nbsp;&nbsp; [ ] Logiciel
 
-- **Consommation moyenne observée :** ________ sachets/jour ou ________ cartons/semaine
-- **Dotation moyenne par enfant :** ________ sachets par jour pendant ________ semaines
-
----
-
-### 4. Historique des Tensions et Ruptures de Stock
-- **Nombre d'épisodes de rupture au cours des 12 derniers mois :** ________ fois
-- **Durée moyenne d'une rupture :** ________ jours
-- **Délai moyen entre la commande et la livraison officielle (Lead Time) :** ________ jours / semaines
-- **Quelles sont les causes principales ?**  
-  [ ] Rupture au niveau central (dépôt national / CAMEG)  
-  [ ] Retard de transport / logistique  
-  [ ] Flambée soudaine d'admissions (afflux de déplacés, pic saisonnier)  
-  [ ] Retard dans la remontée des rapports de consommation
+### 2.2 Seuils de Sécurité & Pratiques de Réserve
+- **Existe-t-il un seuil ou une quantité minimale de stock que vous cherchez à préserver ?**  
+  [ ] Oui &nbsp;&nbsp;&nbsp; [ ] Non &nbsp;&nbsp;&nbsp; [ ] Ne sait pas  
+  *Si oui :*
+  - Valeur du seuil : ________ (en jours de conso [ ] ou en cartons [ ])
+  - Origine de cette règle : [ ] Directive officielle MSHP &nbsp;&nbsp;&nbsp; [ ] Pratique locale d'expérience &nbsp;&nbsp;&nbsp; [ ] Consigne ONG
+- **Existe-t-il une règle de "Stock Réservé" pour les enfants déjà en cours de traitement ?**  
+  [ ] Oui &nbsp;&nbsp;&nbsp; [ ] Non &nbsp;&nbsp;&nbsp; [ ] Estimation informelle  
+  *Si oui, comment l'estimez-vous ?* ____________________________________________________________
+- *(Facultatif)* Nombre actuel approximatif d'enfants en file active : ________ enfants
 
 ---
 
-### 5. Pratique Réelle du Rééquilibrage Inter-Centres (Dépannages Locaux)
-- **Avez-vous déjà effectué un transfert de dépannage vers/depuis un autre centre ?** [ ] Oui  [ ] Non
-- **Si OUI, sur quelle base ?**
-  - Qui prend l'initiative de la demande ? ____________________________________________
-  - Qui donne l'accord final obligatoire ? _____________________________________________
-  - Quel moyen de communication est utilisé ? [ ] Téléphone [ ] WhatsApp [ ] Ordre écrit [ ] Déplacement
-  - Quel est le délai moyen pour concrétiser le transfert ? ________ heures / jours
-  - Moyen de transport utilisé : [ ] Moto du centre [ ] Véhicule de supervision [ ] Ambulance [ ] Autre : ________
-  - Rayon kilométrique d'intervention habituel : ________ km max
+# SECTION 3 : RECONSTITUTION DES FLUX (SÉRIE TEMPORELLE)
+
+> **Consigne pour l'enquêteur :** Demandez d'abord si la structure dispose d'un suivi **hebdomadaire**. Si oui, remplissez les semaines (S-1 à S-8). Si la structure ne suit ses stocks qu'au mois, basculez sur le tableau mensuel ci-dessous. **Prenez la donnée telle qu'elle existe réellement.**
+
+### Option A : Suivi Hebdomadaire (Prioritaire si disponible)
+
+| Semaine | Stock Début (cartons) | Entrées / Livraisons (cartons) | Sorties / Distributions (cartons) | Stock Fin (cartons) | Nbre Enfants Actifs | Source (Fiche / Registre / Oral) |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **S - 1** | | | | | | |
+| **S - 2** | | | | | | |
+| **S - 3** | | | | | | |
+| **S - 4** | | | | | | |
+| **S - 5** | | | | | | |
+| **S - 6** | | | | | | |
+| **S - 7** | | | | | | |
+| **S - 8** | | | | | | |
 
 ---
 
-# PARTIE B : GUIDE D'ENTRETIEN QUALITATIF (Questions ouvertes)
+### Option B : Suivi Mensuel (Si le suivi hebdomadaire n'existe pas)
 
-### Questions pour le Médecin-Chef de District (MCD) :
-1. *« Lorsqu'un CSPS périphérique vous signale qu'il n'a plus que quelques jours de Plumpy'Nut, quel est votre premier réflexe opérationnel ? »*
-2. *« Qu'est-ce qui vous freine le plus aujourd'hui pour demander à un CSPS voisin de dépanner : la peur de le mettre en difficulté, le manque de visibilité sur son stock exact, ou la lenteur de la procédure ? »*
-3. *« Si une application sur votre téléphone vous proposait une recommandation calculée disant : 'Le centre A peut donner 5 cartons au centre B sans se fragiliser', avec un bouton Valider/Refuser, l'utiliseriez-vous ? Quels critères supplémentaires vérifieriez-vous ? »*
-
-### Questions pour le Pharmacien / Gestionnaire d'Intrants :
-1. *« Quels outils utilisez-vous actuellement pour suivre les stocks (registres papier, fiches de stock, DHIS2, logiciel local) ? À quelle fréquence sont-ils mis à jour ? »*
-2. *« À partir de quel seuil considérez-vous qu'un centre est en situation d'alerte orange (tension) et en alerte rouge (risque imminent) ? »*
-3. *« Comment calculez-vous la part de stock non mobilisable (stock de sécurité + traitement en cours des enfants) ? »*
-
-### Questions pour le Responsable Nutrition (CREN / CRENI) :
-1. *« Que se passe-t-il concrètement pour un enfant sévèrement malnutri en cas de rupture de stock de 3 jours ? Est-il réorienté, ou le traitement est-il fractionné ? »*
-2. *« Quelle est la saisonnalité de la malnutrition dans votre zone (période de soudure, pic de cas) ? »*
+| Mois | Stock Début (cartons) | Entrées reçues (cartons) | Sorties distribuées (cartons) | Stock Fin (cartons) | Rupture constatée (Oui/Non, nb jours) | Source de la donnée |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **M - 3** | | | | | | |
+| **M - 2** | | | | | | |
+| **M - 1** | | | | | | |
+| **Mois en cours** | | | | | | |
 
 ---
 
-## 🎯 Ce que l'équipe doit en tirer au retour
-À l'issue de la visite, vous devez être capables de renseigner :
-1. Les **seuils réels de sécurité** (en jours ou en cartons) pour alimenter les constantes de `backend/core/decision_engine.py`.
-2. Le **délai de réaction actuel** (ex: *"Aujourd'hui, il faut 72h pour organiser un dépannage manuel"* vs *"NUTRI-TRACK permet une proposition en 1 minute et une validation en un clic"*).
-3. Une **série de données réelles anonymisées sur 3 mois** pour faire tourner le simulateur avec des chiffres authentiques du Burkina Faso pendant le pitch !
+# SECTION 4 : DÉLAIS, COMMANDES ET RUPTURES HISTORIQUES
+
+- **Délai moyen d'approvisionnement (Lead Time) :**  
+  Entre le moment où vous passez commande et la réception physique des cartons : ________ jours / semaines.
+- **Historique des ruptures récentes (12 derniers mois) :**
+  - Avez-vous connu des ruptures complètes d'ATPE ? [ ] Oui &nbsp;&nbsp;&nbsp; [ ] Non
+  - Si oui, combien de fois ? ________ fois | Durée moyenne : ________ jours.
+  - Cause principale constatée :  
+    [ ] Rupture au dépôt répartiteur/CAMEG &nbsp;&nbsp;&nbsp; [ ] Retard transport &nbsp;&nbsp;&nbsp; [ ] Flambée soudaine de cas
+
+---
+
+# SECTION 5 : LE PROCESSUS RÉEL DE RÉÉQUILIBRAGE (TRANSFERTS LOCAUX)
+
+*Cette section est le cœur de NUTRI-SWITCH : comprendre comment se gère un dépannage aujourd'hui.*
+
+1. **Avez-vous déjà dépanné ou été dépanné par une autre formation sanitaire voisine ?**  
+   [ ] Oui &nbsp;&nbsp;&nbsp; [ ] Non &nbsp;&nbsp;&nbsp; [ ] C'est interdit / Non pratiqué
+
+2. **Si OUI, quel est le circuit exact de décision ?**
+   - **Détection :** Qui se rend compte de la rupture ? [ ] L'infirmier/ASC &nbsp;&nbsp;&nbsp; [ ] Le pharmacien &nbsp;&nbsp;&nbsp; [ ] Le MCD
+   - **Recherche :** Comment sait-on quel centre voisin a du stock ?  
+     [ ] Appels téléphoniques de proche en proche &nbsp;&nbsp;&nbsp; [ ] Groupe WhatsApp &nbsp;&nbsp;&nbsp; [ ] On ne sait pas, on devine
+   - **Validation :** Qui donne l'accord obligatoire avant tout déplacement de carton ?  
+     [ ] Accord direct entre infirmiers &nbsp;&nbsp;&nbsp; [ ] Validation obligatoire du Médecin-Chef de District (MCD) &nbsp;&nbsp;&nbsp; [ ] Ordre écrit
+   - **Délai total du processus :** Combien de temps s'écoule entre l'alerte et l'arrivée effective du carton ? ________ heures / jours.
+
+3. **Les Contraintes réelles du centre donneur :**
+   - *« Accepteriez-vous de donner 10 cartons à un CSPS voisin s'il ne vous en reste que 15 ? »*  
+     Réponse : __________________________________________________________________________________
+   - Distance maximale acceptable pour aller chercher un dépannage : ________ km.
+   - Moyen de transport habituel pour ces transferts :  
+     [ ] Moto personnelle &nbsp;&nbsp;&nbsp; [ ] Ambulance du district &nbsp;&nbsp;&nbsp; [ ] Véhicule de supervision &nbsp;&nbsp;&nbsp; [ ] Transport en commun
+
+---
+
+# SECTION 6 : GRILLE DE QUALITÉ ET FIABILITÉ DES DONNÉES
+
+*À remplir par l'enquêteur ISGE à la fin de la visite pour qualifier la robustesse de l'information :*
+
+| Indicateur évalué | Niveau de fiabilité observé | Justification / Remarques |
+| :--- | :--- | :--- |
+| **Niveau de Stock actuel** | [ ] Vérifié sur fiche de stock<br>[ ] Déclaré oralement<br>[ ] Discordant | |
+| **Données de Consommation** | [ ] Registre papier côté et paraphé<br>[ ] Rapport mensuel agrégé<br>[ ] Estimation approximative | |
+| **Traçabilité des Livraisons** | [ ] Bordereaux / Bons de livraison archivés<br>[ ] Mémoire de l'agent | |
+| **Régularité des mises à jour** | [ ] À jour à < 48 heures<br>[ ] Retard de 1 à 2 semaines<br>[ ] Retard de plus d'un mois | |
+
+---
+
+## 📌 Synthèse pour le Jury IDEAthon
+Au retour de la visite, résumer en 3 phrases :
+1. **La réalité du besoin :** *« Au [Nom de la structure], une tension de stock met actuellement [X] jours à être résolue par échange téléphonique informel. »*
+2. **La validation de notre algorithme :** *« Les professionnels confirment qu'un centre ne peut céder de stock que s'il préserve au minimum [X] jours de couverture. »*
+3. **La valeur ajoutée de NUTRI-TRACK :** *« NUTRI-TRACK digitalise et sécurise cette pratique réelle en réduisant le délai de réaction de [X jours] à quelques minutes. »*
