@@ -4,9 +4,10 @@ import time
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException, status, Response
+from fastapi import FastAPI, Depends, HTTPException, status, Response, Request
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 from pydantic import BaseModel
@@ -59,11 +60,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="NUTRI-DÉPIST API",
     description="Backend & Moteur de classification haute performance (Conforme PCIMA Burkina Faso 2014 & OMS)",
-    version="1.2.0",
+    version="1.3.0",
     lifespan=lifespan
 )
 
-# CORS pour intégration Mobile & Vision AI
+# 1. CORS pour intégration Mobile & Vision AI
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -71,6 +72,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 2. Compression GZip pour accélérer les réseaux mobiles 2G/3G lents
+app.add_middleware(GZipMiddleware, minimum_size=500)
+
+# 3. Middleware de mesure du temps d'exécution (Performance Latency Tracker)
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = round((time.time() - start_time) * 1000, 2)  # temps en millisecondes
+    response.headers["X-Process-Time-ms"] = str(process_time)
+    return response
 
 
 def get_current_seuils_dict(db: Session, force_refresh: bool = False) -> dict:
@@ -104,7 +117,7 @@ def health_check(db: Session = Depends(get_db)):
         "database": db_status,
         "uptime_seconds": uptime_seconds,
         "protocol": "PCIMA Burkina Faso 2014 / OMS 2006",
-        "engine_version": "1.2.0-vision-ai-ready",
+        "engine_version": "1.3.0-optimized-production",
         "total_depistages_enregistres": total_depistages,
         "timestamp": datetime.now(timezone.utc)
     }
@@ -246,7 +259,6 @@ def créer_depistage(payload: schemas.DepistageCreate, db: Session = Depends(get
     classification = pipeline_res["classification"]
     orientation_declenchee = pipeline_res["orientation_declenchee"]
 
-    # Création du dépistage principal
     depistage = models.Depistage(
         population=payload.population,
         mesures=payload.mesures,
@@ -260,7 +272,6 @@ def créer_depistage(payload: schemas.DepistageCreate, db: Session = Depends(get
     db.add(depistage)
     db.flush()
 
-    # Enregistrement dans les tables spécifiques
     if payload.population == "enfant":
         m = payload.mesures
         mesure_enfant = models.MesureEnfant(

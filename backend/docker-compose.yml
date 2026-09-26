@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  nutri-depist-api:
+    build: .
+    container_name: nutri_depist_api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./nutri_depist.db
+    volumes:
+      - ./nutri_depist.db:/app/nutri_depist.db
+    restart: always
