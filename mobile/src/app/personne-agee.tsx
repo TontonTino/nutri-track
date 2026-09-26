@@ -98,7 +98,7 @@ export default function SaisiePersonneAgee() {
       try {
         const resultat = await effectuerDepistage('personne_agee', mesure, options);
         setErreurs({});
-        router.replace({ pathname: '/resultat', params: paramsResultat('personne_agee', resultat, options) });
+        router.replace({ pathname: '/resultat', params: paramsResultat('personne_agee', resultat) });
       } catch (e) {
         const { erreurs: nouvelles, general } = erreurPourFormulaire(e, LIBELLES_CHAMPS);
         setErreurs(nouvelles);

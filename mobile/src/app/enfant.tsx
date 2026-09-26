@@ -126,7 +126,7 @@ export default function SaisieEnfant() {
       try {
         const resultat = await effectuerDepistage('enfant', mesure, options);
         setErreurs({});
-        router.replace({ pathname: '/resultat', params: paramsResultat('enfant', resultat, options) });
+        router.replace({ pathname: '/resultat', params: paramsResultat('enfant', resultat) });
       } catch (e) {
         const { erreurs: nouvelles, general } = erreurPourFormulaire(e, LIBELLES_CHAMPS);
         setErreurs(nouvelles);

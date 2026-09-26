@@ -77,7 +77,7 @@ export default function SaisieFemmeEnceinte() {
       try {
         const resultat = await effectuerDepistage('enceinte', mesure, options);
         setErreurs({});
-        router.replace({ pathname: '/resultat', params: paramsResultat('enceinte', resultat, options) });
+        router.replace({ pathname: '/resultat', params: paramsResultat('enceinte', resultat) });
       } catch (e) {
         const { erreurs: nouvelles, general } = erreurPourFormulaire(e, LIBELLES_CHAMPS);
         setErreurs(nouvelles);

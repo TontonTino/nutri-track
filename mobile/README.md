@@ -87,7 +87,7 @@ Pourquoi ce choix : l'estimation par calibration du module de Lionel (ci-dessous
 
 ### Intégration de `vision/`
 
-Le module de Lionel (`vision/`, importé **sans modification**) est hébergé dans l'app : le formulaire Enfant propose « Mesurer avec la caméra », qui ouvre ses écrans Capture → Calibration → Confirmation. Le PB **confirmé ou corrigé par l'agent** revient dans le champ PB (jamais une estimation brute), puis le flux normal enregistre **un seul** dépistage (en ligne ou hors ligne).
+Le module de Lionel (`vision/`, importé **sans modification**) est hébergé dans l'app. Avec `EXPO_PUBLIC_VISION_CALIBRATION=true`, le formulaire Enfant propose « Estimer par calibration (prototype) », qui ouvre ses écrans Capture → Calibration → Confirmation. Le PB **confirmé ou corrigé par l'agent** revient dans le champ PB (jamais une estimation brute), puis le flux normal enregistre **un seul** dépistage (en ligne ou hors ligne).
 
 Comment c'est rendu compatible sans toucher à ses fichiers (`metro.config.js` + `metro-aliases.js`, actifs uniquement pour les fichiers de `vision/`) :
 
@@ -123,7 +123,7 @@ Traçabilité : `pb_source: "vision_ai"` (convention d'Alya), `mode_saisie: "vis
 
 - **Données non chiffrées au repos** : la base SQLite et le code ou nom des personnes sont en clair sur le téléphone, alors que le cahier des charges (§9.4) exige un chiffrement. À traiter avec Rasmata (SQLCipher).
 - **Pas d'authentification** : `agent_id` et `centre_id` sont des constantes de démonstration (`src/constants/config.ts`). La détection de doublons et l'isolation par centre n'ont donc pas de sens réel tant qu'il n'y a pas de compte agent.
-- **Caméra** : la capture guidée et la calibration n'ont été exercées que par le chemin de saisie manuelle de secours (navigateur, sans caméra). À valider sur un téléphone avec un vrai objet de calibration.
+- **Caméra** : la prise de photo, l'analyse et le retour au formulaire ont été vérifiés sur un TECNO KM6 (photo de peau : aucune fausse couleur détectée). La détection du rouge, du jaune et du vert n'est vérifiée que sur des images synthétiques : à valider avec un vrai brassard sous plusieurs lumières. La purge des images (photo et copie réduite) est faite dans le code mais n'a pas pu être contrôlée sur l'appareil (le cache interne d'Expo Go n'est pas lisible).
 - **Web** : l'historique n'y est conservé qu'en mémoire et il n'y a pas de mode hors ligne (démonstration seulement).
 - **Vérifié sur Android (TECNO KM6, Android 15) uniquement** ; iOS, le mode « grande police » du système et un build installable n'ont pas été testés.
 - **Code de la patiente** en texte libre : une faute de frappe crée une seconde patiente dans le suivi de grossesse.

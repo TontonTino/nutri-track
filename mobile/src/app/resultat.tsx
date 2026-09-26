@@ -43,7 +43,6 @@ export default function Resultat() {
     orientation_declenchee?: string;
     message?: string;
     recommandation?: string;
-    oedemes_incertains?: string;
     historique_ok?: string;
     provisoire?: string;
     doublon?: string;
@@ -76,9 +75,6 @@ export default function Resultat() {
   if (params.doublon === '1') {
     notes.push({ cle: 'doublon', texte: 'Ressemble à un dépistage saisi récemment : les deux sont conservés.', accent: ACCENT_NOTE });
   }
-  if (params.oedemes_incertains === '1') {
-    notes.push({ cle: 'oedemes', texte: 'Œdèmes incertains : confirmez par le test de pression manuel.', accent: ACCENT_NOTE });
-  }
   if (params.historique_ok === '0') {
     notes.push({ cle: 'historique', texte: "Non enregistré dans l'historique du téléphone.", accent: couleurs.erreur });
   }
@@ -109,7 +105,7 @@ export default function Resultat() {
         {notes.length > 0 ? (
           <View style={styles.notes}>
             {notes.map((n) => (
-              <Note key={n.cle} texte={n.texte} accent={n.accent} testID={n.cle === 'oedemes' ? 'avertissement-oedemes' : `avertissement-${n.cle}`} />
+              <Note key={n.cle} texte={n.texte} accent={n.accent} testID={`avertissement-${n.cle}`} />
             ))}
           </View>
         ) : null}

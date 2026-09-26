@@ -12,9 +12,14 @@ export async function analyserPhoto(uri: string, largeur: number, hauteur: numbe
   contexte.crop(regionCentrale(largeur, hauteur)).resize({ width: LARGEUR_ANALYSE });
   const image = await contexte.renderAsync();
   const reduit = await image.saveAsync({ format: SaveFormat.JPEG, base64: true, compress: 0.9 });
-  if (!reduit.base64) throw new Error("La photo n'a pas pu être analysée.");
-  const pixels = decode(base64VersOctets(reduit.base64), { useTArray: true, formatAsRGBA: true });
-  return analyserPixels(pixels.data, pixels.width, pixels.height);
+  try {
+    if (!reduit.base64) throw new Error("La photo n'a pas pu être analysée.");
+    const pixels = decode(base64VersOctets(reduit.base64), { useTArray: true, formatAsRGBA: true });
+    return analyserPixels(pixels.data, pixels.width, pixels.height);
+  } finally {
+    // La copie réduite écrite dans le cache est, elle aussi, une image dérivée de la photo : elle est effacée.
+    supprimerPhoto(reduit.uri);
+  }
 }
 
 // La photo d'un brassard fait partie des données de santé : elle n'est jamais conservée après usage.

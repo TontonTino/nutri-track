@@ -12,7 +12,6 @@ import { ApiError } from './apiError';
 
 export interface OptionsDepistage {
   personneRef?: string | null;
-  oedemesIncertains?: boolean;
   modeSaisie?: string; // 'manuel' par défaut, 'vision' pour un PB mesuré avec la caméra
 }
 
@@ -34,7 +33,7 @@ export async function effectuerDepistage(
   const dateSaisie = new Date().toISOString();
   const extras: Extras = {
     personne_ref: options.personneRef?.trim() || null,
-    oedemes_incertains: options.oedemesIncertains === true,
+    oedemes_incertains: false, // colonne conservée pour les anciens dépistages ; le formulaire n'en produit plus
     message: null,
     recommandation: null,
   };
@@ -98,18 +97,13 @@ export async function effectuerDepistage(
 }
 
 // Paramètres de navigation vers l'écran de résultat (les paramètres d'URL sont des chaînes).
-export function paramsResultat(
-  population: Population,
-  r: ResultatEnregistre,
-  options: OptionsDepistage = {},
-): Record<string, string> {
+export function paramsResultat(population: Population, r: ResultatEnregistre): Record<string, string> {
   return {
     population,
     classification: r.classification,
     orientation_declenchee: String(r.orientation_declenchee),
     message: r.message ?? '',
     recommandation: r.recommandation ?? '',
-    oedemes_incertains: options.oedemesIncertains ? '1' : '0',
     historique_ok: r.historiqueEnregistre ? '1' : '0',
     provisoire: r.provisoire ? '1' : '0',
     doublon: r.conflitAmbigu ? '1' : '0',
