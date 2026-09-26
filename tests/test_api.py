@@ -145,7 +145,7 @@ def test_get_and_put_seuils():
         "type_mesure": "pb_severe",
         "nouvelle_valeur": 110.0,
         "agent_id": "SUPERVISEUR_01",
-        "version_protocole": "OMS 2025"
+        "version_protocole": "PCIMA Burkina Faso 2014"
     }
     put_res = client.put("/seuils", json=update_payload)
     assert put_res.status_code == 200
@@ -173,4 +173,4 @@ def test_export_csv_and_fiche_orientation():
     fiche_res = client.get(f"/alertes/{dep_id}/fiche-orientation")
     assert fiche_res.status_code == 200
     assert "text/html" in fiche_res.headers["content-type"]
-    assert "FICHE D'ORIENTATION" in fiche_res.text
+    assert "FICHE DE TRANSFERT PCIMA" in fiche_res.text

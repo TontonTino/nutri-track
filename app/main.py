@@ -18,12 +18,14 @@ Base.metadata.create_all(bind=engine)
 
 
 def seed_default_seuils(db: Session):
-    """Initialise la table Seuils si elle est vide (Aucun seuil codé en dur hors DB)."""
+    """Initialise la table Seuils selon le Protocole National PCIMA Burkina Faso 2014."""
     defaults = [
-        {"population": "enfant", "type_mesure": "pb_severe", "valeur_seuil": 115.0, "version_protocole": "OMS 2024"},
-        {"population": "enfant", "type_mesure": "pb_modere", "valeur_seuil": 125.0, "version_protocole": "OMS 2024"},
+        {"population": "enfant", "type_mesure": "pb_severe", "valeur_seuil": 115.0, "version_protocole": "PCIMA Burkina Faso 2014"},
+        {"population": "enfant", "type_mesure": "pb_modere", "valeur_seuil": 125.0, "version_protocole": "PCIMA Burkina Faso 2014"},
         {"population": "personne_agee", "type_mesure": "score_mna_sf_denutrition", "valeur_seuil": 7.0, "version_protocole": "MNA-SF Standard"},
-        {"population": "enceinte", "type_mesure": "ecart_hu_max", "valeur_seuil": 3.0, "version_protocole": "CPN OMS 2024"},
+        {"population": "personne_agee", "type_mesure": "pb_severe_adulte", "valeur_seuil": 180.0, "version_protocole": "PCIMA Burkina Faso 2014"},
+        {"population": "enceinte", "type_mesure": "pb_enceinte_seuil", "valeur_seuil": 230.0, "version_protocole": "PCIMA Burkina Faso 2014"},
+        {"population": "enceinte", "type_mesure": "ecart_hu_max", "valeur_seuil": 3.0, "version_protocole": "CPN PCIMA 2014"},
     ]
     
     count = db.query(models.Seuils).count()
@@ -49,7 +51,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="NUTRI-DÉPIST API",
-    description="Backend & Moteur de classification pour le dépistage nutritionnel communautaire",
+    description="Backend & Moteur de classification (Conforme PCIMA Burkina Faso 2014 & OMS)",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -210,7 +212,7 @@ class UpdateSeuilPayload(BaseModel):
     type_mesure: str
     nouvelle_valeur: float
     agent_id: str
-    version_protocole: Optional[str] = "Mis à jour"
+    version_protocole: Optional[str] = "PCIMA Burkina Faso 2014"
 
 
 @app.put("/seuils", response_model=schemas.SeuilResponse)
@@ -296,11 +298,12 @@ def exporter_alertes_csv(db: Session = Depends(get_db)):
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["ID", "Population", "Date", "Agent_ID", "Centre_ID", "Classification", "Mode_Saisie", "Mesures"])
+    writer.writerow(["ID", "Numero_MA", "Population", "Date", "Agent_ID", "Centre_ID", "Classification", "Mode_Saisie", "Mesures"])
 
     for a in alertes:
+        num_ma = pipeline.generer_numero_ma("RBM", "DDG", a.centre_id, a.date.year, a.id)
         writer.writerow([
-            a.id, a.population, a.date.strftime("%Y-%m-%d %H:%M:%S"),
+            a.id, num_ma, a.population, a.date.strftime("%Y-%m-%d %H:%M:%S"),
             a.agent_id, a.centre_id, a.classification, a.mode_saisie, str(a.mesures)
         ])
 
@@ -315,24 +318,26 @@ def exporter_alertes_csv(db: Session = Depends(get_db)):
 @app.get("/alertes/{id}/fiche-orientation", response_class=HTMLResponse)
 def obtenir_fiche_orientation(id: int, db: Session = Depends(get_db)):
     """
-    Génère une fiche d'orientation médicale d'urgence imprimable (HTML/PDF) 
-    à remettre au patient/accompagnant pour le transfert au centre de référence.
+    Génère une fiche d'orientation médicale d'urgence imprimable (HTML/PDF)
+    conforme à la norme PCIMA Burkina Faso.
     """
     depistage = db.query(models.Depistage).filter(models.Depistage.id == id).first()
     if not depistage:
         raise HTTPException(status_code=404, detail="Dépistage non trouvé")
+
+    num_ma = pipeline.generer_numero_ma("RBM", "DDG", depistage.centre_id, depistage.date.year, depistage.id)
 
     html_content = f"""
     <!DOCTYPE html>
     <html lang="fr">
     <head>
         <meta charset="UTF-8">
-        <title>Fiche d'Orientation Médicale - NUTRI-DÉPIST</title>
+        <title>Fiche d'Orientation Médicale - PCIMA Burkina Faso</title>
         <style>
             body {{ font-family: 'Helvetica Neue', Arial, sans-serif; background: #f8fafc; padding: 20px; color: #1e293b; }}
             .card {{ max-width: 650px; margin: 0 auto; background: white; border-radius: 12px; padding: 30px; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); }}
             .header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ef4444; padding-bottom: 15px; margin-bottom: 20px; }}
-            .logo {{ font-size: 20px; font-weight: bold; color: #dc2626; letter-spacing: 1px; }}
+            .logo {{ font-size: 18px; font-weight: bold; color: #dc2626; letter-spacing: 0.5px; }}
             .badge-urgent {{ background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; font-weight: bold; padding: 6px 12px; border-radius: 20px; font-size: 13px; text-transform: uppercase; }}
             .section-title {{ font-size: 14px; font-weight: bold; text-transform: uppercase; color: #64748b; margin-top: 20px; margin-bottom: 10px; }}
             .info-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #f8fafc; padding: 15px; border-radius: 8px; font-size: 14px; }}
@@ -345,12 +350,12 @@ def obtenir_fiche_orientation(id: int, db: Session = Depends(get_db)):
     <body>
         <div class="card">
             <div class="header">
-                <div class="logo">🏥 NUTRI-DÉPIST &bull; FICHE D'ORIENTATION</div>
+                <div class="logo">🇧🇫 NUTRI-DÉPIST &bull; FICHE DE TRANSFERT PCIMA</div>
                 <div class="badge-urgent">PRIORITÉ URGENTE</div>
             </div>
 
             <div class="info-grid">
-                <div><span class="info-label">Dépistage N° :</span> #{depistage.id}</div>
+                <div><span class="info-label">Numéro Unique MA :</span> <code>{num_ma}</code></div>
                 <div><span class="info-label">Date :</span> {depistage.date.strftime('%d/%m/%Y %H:%M')}</div>
                 <div><span class="info-label">Population :</span> {depistage.population.capitalize()}</div>
                 <div><span class="info-label">Agent Saisisseur :</span> {depistage.agent_id}</div>
@@ -364,12 +369,12 @@ def obtenir_fiche_orientation(id: int, db: Session = Depends(get_db)):
             </div>
 
             <div class="recommandation-box">
-                <strong>🚨 RECOMMANDATION ET ORIENTATION DE PRICIPE :</strong><br>
-                Prise en charge médicale et nutritionnelle spécialisée requise. Transfert recommandé vers le Centre de Santé de Référence / Unité UREN.
+                <strong>🚨 RECOMMANDATION PCIMA BURKINA FASO :</strong><br>
+                Prise en charge médicale et nutritionnelle spécialisée requise. Transfert immédiat vers la structure hospitalière de référence (PCI / CSPS).
             </div>
 
             <div class="footer-sig">
-                <div>Nutri-Dépist API v1.0 &bull; Document Officiel de Transfert</div>
+                <div>Conforme Protocole National PCIMA 2014 &bull; Ministère de la Santé</div>
                 <div>Signature / Tampon Agent : ______________________</div>
             </div>
         </div>
