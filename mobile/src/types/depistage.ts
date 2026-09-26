@@ -14,11 +14,17 @@ export type Oedemes = 'Oui' | 'Non' | 'Incertain';
 // Unités : pb en mm, poids en kg, taille en cm.
 export interface MesureEnfant {
   pb: number;
-  pb_source: string; // "manuel" ; "camera" quand le module de Lionel sera branché
+  pb_source: string; // "manuel", ou "vision_ai" pour un PB mesuré avec la caméra (convention d'Alya)
   poids: number;
   taille: number;
   oedemes_bilateraux: boolean;
   oedemes_source: string; // "clinique" par défaut
+  // Traçabilité d'un PB mesuré avec la caméra (pb_source = "vision_ai") : estimation de l'IA distincte de la valeur
+  // validée par l'ASC. Champs facultatifs, conservés tels quels par le serveur.
+  pb_estime_vision?: number | null;
+  pb_score_confiance?: number | null;
+  pb_statut_validation?: 'confirmee' | 'corrigee';
+  pb_methode_mesure?: string;
 }
 
 // Unités : hauteur_uterine en cm, pb en mm.

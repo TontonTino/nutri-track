@@ -6,13 +6,13 @@ import { ApiError } from './apiError';
 import { mockDepistage } from './mockDepistage';
 import { verifierPlages } from './plages';
 
-export function construireRequete(population: Population, mesures: Mesures): DepistageRequest {
+export function construireRequete(population: Population, mesures: Mesures, modeSaisie = 'manuel'): DepistageRequest {
   return {
     population,
     mesures,
     agent_id: AGENT_ID,
     centre_id: CENTRE_ID,
-    mode_saisie: 'manuel',
+    mode_saisie: modeSaisie,
   };
 }
 

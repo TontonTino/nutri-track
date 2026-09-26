@@ -16,7 +16,9 @@ npx expo start            # puis « a » (Android) ou « w » (web)
 
 Téléphone branché en USB : `adb reverse tcp:8000 tcp:8000` puis `adb reverse tcp:8081 tcp:8081` (l'app appelle alors `localhost`).
 
-Qualité : `npm run typecheck`, `npx expo lint`, `npm test`.
+Backend d'Alya (branche `fix/alya-restructure`, dossier `backend/`) : `pip install -r requirements.txt` puis `uvicorn app.main:app --port 8000`.
+
+Qualité : `npm run typecheck`, `npx expo lint`, `npm test`. Après toute modification de `metro.config.js`, redémarrer Metro (`npx expo start -c`).
 
 ## Structure
 
@@ -24,9 +26,10 @@ Qualité : `npm run typecheck`, `npx expo lint`, `npm test`.
 - `src/services/` : `api.ts` (seul point d'entrée réseau), `mockDepistage.ts`, `plages.ts`, `mna.ts`, `presentation.ts`, `depistage.ts`
 - `src/data/historique.ts` : adaptateur au-dessus du module de Rasmata (`sync/`, importé sans modification). SQLite sur mobile, mémoire sur le web.
 - `sync/` : stockage local et synchronisation (Rasmata, branche `rasmata/offline-sync`). Ne pas modifier ici.
+- `vision/` : capture guidée du PB (Lionel, branche `lionel/vision`). Ne pas modifier ici ; adapté par `metro-aliases.js` et `src/vision/`.
 - `src/theme/` : échelle dynamique. Aucune taille d'écran n'est codée en dur : polices, espacements, rayons, cibles tactiles et largeur de contenu sont calculés à partir de la largeur et de la hauteur réelles de la fenêtre.
 
-## Contrat d'API utilisé (aligné sur `alya/engine-api`)
+## Contrat d'API utilisé (vérifié contre `fix/alya-restructure`, moteur 1.3.0)
 
 `POST /depistage` : `{ population, mesures, agent_id, centre_id, mode_saisie: "manuel" }`
 
@@ -66,18 +69,45 @@ Les informations propres à l'application (code de la personne, œdèmes incerta
 4. **Message et recommandation** du serveur ne sont pas conservés : ils sont perdus après synchronisation d'une entrée hors ligne.
 5. **Classifieur local** différent du moteur d'Alya : personne âgée « score ≤ 6 » contre « ≤ 7 » chez Alya ; grossesse : orientation `false` contre `true`, et `à_confirmer_en_ligne` hors 20-34 SA alors que le serveur classe toutes les semaines.
 
-### Constats pour Lionel (`mobile/vision`, non intégré)
+## Vision par ordinateur (intégration de `vision/`)
 
-- Les écrans utilisent l'API de React Navigation (`navigation.navigate`, `route.params`) ; l'app utilise Expo Router.
-- `PBCaptureScreen` importe `Camera` / `CameraType` de `expo-camera` (API historique, à vérifier avec le SDK 57 qui expose `CameraView`) ; `expo-camera` n'est pas installé.
-- Les écrans attendent un `depistage_id` avant la capture, alors qu'un dépistage n'existe qu'après validation.
-- Souhaitable : un contrat simple, par exemple `onValider({ pb_mm, methode: 'camera' })`, indépendant de la navigation, pour brancher son module dans la saisie Enfant (`pb_source: 'camera'`, `mode_saisie: 'vision'`).
+Le module de Lionel (`vision/`, importé **sans modification**) est hébergé dans l'app : le formulaire Enfant propose « Mesurer avec la caméra », qui ouvre ses écrans Capture → Calibration → Confirmation. Le PB **confirmé ou corrigé par l'agent** revient dans le champ PB (jamais une estimation brute), puis le flux normal enregistre **un seul** dépistage (en ligne ou hors ligne).
+
+Comment c'est rendu compatible sans toucher à ses fichiers (`metro.config.js` + `metro-aliases.js`, actifs uniquement pour les fichiers de `vision/`) :
+
+| Problème | Solution |
+|---|---|
+| Ses écrans utilisent React Navigation (`navigation.navigate`, `route.params`) | `src/vision/navigation.ts` + `EcranVision.tsx` traduisent vers Expo Router (routes `src/app/vision/*`) |
+| `expo-camera` : `Camera` / `CameraType` n'existent plus comme composant / valeur dans le SDK 57 | `src/vision/compat/expoCamera.tsx` (au-dessus de `CameraView`) |
+| Son client réseau vise un serveur factice hors mode dev ; côté Alya, `PUT /capture-vision/{id}/validation` **crée un dépistage** (double comptage avec `POST /depistage`) | `src/vision/compat/captureVisionApiLocale.ts` : la décision reste sur le téléphone (vision utilisable hors ligne) |
+
+Traçabilité : `pb_source: "vision_ai"` (convention d'Alya), `mode_saisie: "vision"` (documenté par Rasmata), et dans `mesures` : `pb_estime_vision`, `pb_score_confiance`, `pb_statut_validation`, `pb_methode_mesure` (estimation de l'IA distincte de la valeur validée). Une valeur simplement tapée à la main sur l'écran de confirmation reste une saisie **manuelle**.
+
+### Demandes pour Lionel
+
+- La plage de correction de sa confirmation (60-400 mm) diffère de celle du serveur (50-350 mm) ; l'app rejette au moment de valider le formulaire.
+- Son écran envoie `score_confiance: 0` en saisie directe (ignoré côté app : traité comme « pas d'estimation »).
+- Ses styles utilisent des tailles fixes ; ils ne suivent pas l'échelle dynamique de l'app.
+- Quand il adaptera son module (Expo Router, `CameraView`, sans appel à `/capture-vision` avant le dépistage), `metro-aliases.js` pourra être supprimé.
+
+### Demandes pour Alya
+
+- `PUT /capture-vision/{id}/validation` crée un dépistage : non utilisé par l'app (double comptage, pas de hors ligne). Le lien capture-dépistage est porté par `mesures` (voir ci-dessus).
+- Classement hors ligne : l'app aligne le résultat provisoire de Rasmata sur son moteur (`src/data/alignementLocal.ts`, mêmes seuils par défaut : MNA-SF ≤ 7, PB adulte < 180 mm, PB enceinte < 230 mm). Si ces seuils changent côté serveur (`PUT /seuils`), les mettre à jour ici.
+
+## Points de couplage entre modules
+
+| Module | Ce que l'app utilise | Où | Modifiable sans casser l'app |
+|---|---|---|---|
+| Alya (API) | `POST /depistage`, format des erreurs 422, champs de `mesures` | `src/services/api.ts`, `src/types/depistage.ts`, `src/services/plages.ts` | Oui, si le contrat ci-dessus est conservé |
+| Rasmata (`sync/`) | `initDatabase`, `getDb`, `enregistrerDepistage`, `getHistorique`, `useOfflineSync`, `classifierHorsLigne` | `src/data/historique.ts`, `src/data/useSynchronisation.ts` | Oui, si ces exports et la table `depistages_locaux` sont conservés |
+| Lionel (`vision/`) | Écrans `PBCaptureScreen`, `CalibrationScreen`, `ConfirmationScreen`, `CaptureFailScreen`, appels `postCaptureVision` / `putCaptureValidation` | `src/app/vision/*`, `src/vision/*`, `metro-aliases.js` | Oui, si les noms d'écrans, leurs paramètres de navigation et ces deux fonctions sont conservés |
 
 ## Limites connues (non traitées)
 
 - **Données non chiffrées au repos** : la base SQLite et le code ou nom des personnes sont en clair sur le téléphone, alors que le cahier des charges (§9.4) exige un chiffrement. À traiter avec Rasmata (SQLCipher).
 - **Pas d'authentification** : `agent_id` et `centre_id` sont des constantes de démonstration (`src/constants/config.ts`). La détection de doublons et l'isolation par centre n'ont donc pas de sens réel tant qu'il n'y a pas de compte agent.
-- **Vision par ordinateur** : non intégrée (voir plus haut).
+- **Caméra** : la capture guidée et la calibration n'ont été exercées que par le chemin de saisie manuelle de secours (navigateur, sans caméra). À valider sur un téléphone avec un vrai objet de calibration.
 - **Web** : l'historique n'y est conservé qu'en mémoire et il n'y a pas de mode hors ligne (démonstration seulement).
 - **Vérifié sur Android (TECNO KM6, Android 15) uniquement** ; iOS, le mode « grande police » du système et un build installable n'ont pas été testés.
 - **Code de la patiente** en texte libre : une faute de frappe crée une seconde patiente dans le suivi de grossesse.

@@ -1,7 +1,7 @@
 // Saisie manuelle Enfant : MesureEnfant(pb, pb_source, poids, taille, oedemes_bilateraux, oedemes_source).
 // L'ASC choisit Oui / Non / Incertain ; l'API attend un booléen (voir services/mappings.ts).
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { BanniereErreur } from '../components/BanniereErreur';
 import { BoutonPrincipal } from '../components/BoutonPrincipal';
@@ -9,6 +9,9 @@ import { ChampNumerique } from '../components/ChampNumerique';
 import { ChoixUnique } from '../components/ChoixUnique';
 import { effectuerDepistage, paramsResultat } from '../services/depistage';
 import { useEnvoiUnique } from '../services/useEnvoiUnique';
+import { AGENT_ID } from '../constants/config';
+import { champsVision, MODE_SAISIE_VISION, PB_SOURCE_VISION, visionActive } from '../vision/mesureAssistee';
+import { consommerResultat, definirParametres, reinitialiserSession, type ResultatVision } from '../vision/session';
 import { type Erreurs, erreurPourFormulaire, versNombre } from '../services/formulaire';
 import { oedemesVersApi } from '../services/mappings';
 import type { Echelle } from '../theme/echelle';
@@ -31,9 +34,30 @@ export default function SaisieEnfant() {
   const [poids, setPoids] = useState('');
   const [taille, setTaille] = useState('');
   const [oedemes, setOedemes] = useState<Oedemes | null>(null);
+  const [vision, setVision] = useState<ResultatVision | null>(null);
   const [erreurs, setErreurs] = useState<Erreurs>({});
   const [erreurGenerale, setErreurGenerale] = useState<string | null>(null);
   const { chargement: envoiEnCours, lancer } = useEnvoiUnique();
+
+  // Retour de la capture assistée : le PB confirmé ou corrigé par l'agent remplit le champ (jamais une estimation brute).
+  useFocusEffect(
+    useCallback(() => {
+      const resultat = consommerResultat();
+      if (!resultat) return;
+      setVision(resultat);
+      setPb(String(resultat.valeur_mm));
+      setErreurs((e) => ({ ...e, pb: undefined }));
+      setErreurGenerale(null);
+    }, []),
+  );
+
+  function lancerCapture() {
+    reinitialiserSession();
+    definirParametres('PBCaptureScreen', { agent_id: AGENT_ID });
+    router.push('/vision/capture');
+  }
+
+  const visionEnCours = visionActive(pb, vision);
 
   function modifier(champ: string, maj: (v: string) => void) {
     return (texte: string) => {
@@ -61,15 +85,21 @@ export default function SaisieEnfant() {
       return;
     }
 
+    const assiste = visionActive(pb, vision);
     const mesure: MesureEnfant = {
       pb: pbN as number,
-      pb_source: 'manuel',
+      pb_source: assiste ? PB_SOURCE_VISION : 'manuel',
       poids: poidsN as number,
       taille: tailleN as number,
       oedemes_bilateraux: oedemesVersApi(oedemes as Oedemes),
       oedemes_source: 'clinique',
+      ...(assiste ? champsVision(assiste) : {}),
     };
-    const options = { personneRef: code, oedemesIncertains: oedemes === 'Incertain' };
+    const options = {
+      personneRef: code,
+      oedemesIncertains: oedemes === 'Incertain',
+      modeSaisie: assiste ? MODE_SAISIE_VISION : 'manuel',
+    };
 
     await lancer(async () => {
       try {
@@ -105,8 +135,13 @@ export default function SaisieEnfant() {
           valeur={pb}
           onChange={modifier('pb', setPb)}
           erreur={erreurs.pb}
-          aide="Mesure au brassard, en millimètres. Exemple : 112"
+          aide={
+            visionEnCours
+              ? `Mesuré avec la caméra et ${visionEnCours.statut === 'corrigee' ? 'corrigé' : 'confirmé'} par vous. Modifiez le champ pour saisir à la main.`
+              : 'Mesure au brassard, en millimètres. Exemple : 112'
+          }
         />
+        <BoutonPrincipal titre="Mesurer avec la caméra (facultatif)" secondaire onPress={lancerCapture} testID="bouton-camera" />
         <ChampNumerique testID="champ-poids" libelle="Poids" unite="kg" valeur={poids} onChange={modifier('poids', setPoids)} erreur={erreurs.poids} />
         <ChampNumerique testID="champ-taille" libelle="Taille" unite="cm" valeur={taille} onChange={modifier('taille', setTaille)} erreur={erreurs.taille} />
         <ChoixUnique

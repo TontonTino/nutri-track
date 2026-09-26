@@ -10,6 +10,7 @@
 // Sur le web, SQLite n'est pas utilisé : repli en mémoire (démonstration uniquement).
 import { Platform } from 'react-native';
 import type { Population } from '../types/depistage';
+import { alignerSurMoteur } from './alignementLocal';
 
 export interface EnregistrementHistorique {
   id: string; // local_id
@@ -254,7 +255,7 @@ export async function enregistrerHorsLigne(d: DepistageHorsLigne): Promise<Resul
   if (surWeb) {
     // Le web n'a pas de SQLite : on reproduit le comportement avec la classification locale de Rasmata (module pur).
     const { classifierHorsLigne } = await import('../../sync/localClassifier');
-    const c = classifierHorsLigne(d.population, d.mesures) as { classification: string; orientation_declenchee: boolean };
+    const c = alignerSurMoteur(d.population, d.mesures, classifierHorsLigne(d.population, d.mesures) as { classification: string; orientation_declenchee: boolean });
     const id = genererIdLocal();
     memoire.push({
       id,
@@ -285,6 +286,19 @@ export async function enregistrerHorsLigne(d: DepistageHorsLigne): Promise<Resul
     centre_id: d.centre_id,
     mode_saisie: d.mode_saisie,
   })) as ResultatHorsLigne;
+  // Le classifieur local de Rasmata peut sous-orienter : on relève le résultat provisoire au niveau du moteur d'Alya
+  // (sans modifier son code) et on met à jour la ligne qu'elle vient d'écrire.
+  const aligne = alignerSurMoteur(d.population, d.mesures, { classification: r.classification, orientation_declenchee: r.orientation_declenchee });
+  if (aligne.classification !== r.classification || aligne.orientation_declenchee !== r.orientation_declenchee) {
+    await db.runAsync(
+      'UPDATE depistages_locaux SET classification_locale = ?, orientation_declenchee = ? WHERE local_id = ?',
+      aligne.classification,
+      aligne.orientation_declenchee ? 1 : 0,
+      r.local_id,
+    );
+    r.classification = aligne.classification;
+    r.orientation_declenchee = aligne.orientation_declenchee;
+  }
   await ecrireExtras(db, r.local_id, d.extras);
   if (r.conflit_ambigu) {
     const lignes = (await sync.getHistorique()) as LigneLocale[];

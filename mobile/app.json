@@ -24,7 +24,15 @@
     },
     "plugins": [
       "expo-router",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "NUTRI-DÉPIST utilise la caméra pour assister la mesure du périmètre brachial. Vous confirmez toujours la valeur avant qu'elle soit utilisée.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ]
     ],
     "scheme": "nutridepist"
   }

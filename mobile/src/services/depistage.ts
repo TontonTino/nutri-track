@@ -13,6 +13,7 @@ import { ApiError } from './apiError';
 export interface OptionsDepistage {
   personneRef?: string | null;
   oedemesIncertains?: boolean;
+  modeSaisie?: string; // 'manuel' par défaut, 'vision' pour un PB mesuré avec la caméra
 }
 
 export interface ResultatEnregistre {
@@ -37,7 +38,7 @@ export async function effectuerDepistage(
     message: null,
     recommandation: null,
   };
-  const requete = construireRequete(population, mesures);
+  const requete = construireRequete(population, mesures, options.modeSaisie);
 
   try {
     const reponse = await postDepistage(requete);
