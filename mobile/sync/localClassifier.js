@@ -30,7 +30,10 @@ const SEUILS_PAR_DEFAUT = {
  */
 function classerEnfant(mesures, seuils) {
   const pb = Number(mesures.pb);
-  const oedemes = Boolean(mesures.oedemes_bilateraux);
+  const oedemes = mesures.oedemes_bilateraux === true
+    || mesures.oedemes_bilateraux === 1
+    || mesures.oedemes_bilateraux === 'true'
+    || mesures.oedemes_bilateraux === '1';
 
   if (oedemes || (Number.isFinite(pb) && pb < seuils.enfant_pb_severe_mm)) {
     return { classification: 'sévère', orientation_declenchee: true };

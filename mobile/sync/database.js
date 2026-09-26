@@ -21,50 +21,57 @@
 import * as SQLite from 'expo-sqlite';
 
 let dbPromise = null;
+let initPromise = null;
 
 export function getDb() {
   if (!dbPromise) {
     dbPromise = SQLite.openDatabaseAsync('nutri_depist.db');
   }
-  return dbPromise;
+  if (!initPromise) {
+    initPromise = dbPromise.then(async (db) => {
+      await db.execAsync(`
+        PRAGMA journal_mode = WAL;
+
+        CREATE TABLE IF NOT EXISTS depistages_locaux (
+          local_id TEXT PRIMARY KEY NOT NULL,
+          server_id INTEGER,
+          population TEXT NOT NULL,
+          mesures TEXT NOT NULL,
+          agent_id TEXT NOT NULL,
+          centre_id TEXT NOT NULL,
+          mode_saisie TEXT NOT NULL DEFAULT 'manuel',
+          classification_locale TEXT,
+          classification_locale_provisoire INTEGER NOT NULL DEFAULT 1,
+          classification_serveur TEXT,
+          orientation_declenchee INTEGER NOT NULL DEFAULT 0,
+          date_saisie_locale TEXT NOT NULL,
+          statut_sync TEXT NOT NULL DEFAULT 'en_attente',
+          conflit_ambigu INTEGER NOT NULL DEFAULT 0,
+          conflit_avec_local_id TEXT,
+          derniere_erreur_sync TEXT,
+          nb_tentatives_sync INTEGER NOT NULL DEFAULT 0
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_depistages_statut ON depistages_locaux(statut_sync);
+        CREATE INDEX IF NOT EXISTS idx_depistages_centre ON depistages_locaux(centre_id);
+
+        CREATE TABLE IF NOT EXISTS synchronisation_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          depistage_id TEXT NOT NULL,
+          date_saisie_locale TEXT NOT NULL,
+          date_synchronisation TEXT
+        );
+      `);
+      return db;
+    }).catch((err) => {
+      dbPromise = null;
+      initPromise = null;
+      throw err;
+    });
+  }
+  return initPromise;
 }
 
 export async function initDatabase() {
-  const db = await getDb();
-
-  await db.execAsync(`
-    PRAGMA journal_mode = WAL;
-
-    CREATE TABLE IF NOT EXISTS depistages_locaux (
-      local_id TEXT PRIMARY KEY NOT NULL,
-      server_id INTEGER,
-      population TEXT NOT NULL,
-      mesures TEXT NOT NULL,
-      agent_id TEXT NOT NULL,
-      centre_id TEXT NOT NULL,
-      mode_saisie TEXT NOT NULL DEFAULT 'manuel',
-      classification_locale TEXT,
-      classification_locale_provisoire INTEGER NOT NULL DEFAULT 1,
-      classification_serveur TEXT,
-      orientation_declenchee INTEGER NOT NULL DEFAULT 0,
-      date_saisie_locale TEXT NOT NULL,
-      statut_sync TEXT NOT NULL DEFAULT 'en_attente',
-      conflit_ambigu INTEGER NOT NULL DEFAULT 0,
-      conflit_avec_local_id TEXT,
-      derniere_erreur_sync TEXT,
-      nb_tentatives_sync INTEGER NOT NULL DEFAULT 0
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_depistages_statut ON depistages_locaux(statut_sync);
-    CREATE INDEX IF NOT EXISTS idx_depistages_centre ON depistages_locaux(centre_id);
-
-    CREATE TABLE IF NOT EXISTS synchronisation_log (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      depistage_id TEXT NOT NULL,
-      date_saisie_locale TEXT NOT NULL,
-      date_synchronisation TEXT
-    );
-  `);
-
-  return db;
+  return getDb();
 }
