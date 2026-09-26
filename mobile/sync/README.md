@@ -90,5 +90,9 @@ de Fanta en place.)
 
 ## Tests (Volet 2)
 
-Voir `__tests__/syncQueue.test.js`. Ils utilisent une fausse implémentation de
-`expo-sqlite` en mémoire (pas besoin d'un vrai appareil / simulateur pour tourner en CI).
+Les tests utilisent Vitest et une fausse implémentation de `expo-sqlite` en mémoire
+(pas besoin d'un vrai appareil / simulateur). Depuis `mobile/sync` :
+
+```bash
+npx vitest run --config vitest.config.mts
+```

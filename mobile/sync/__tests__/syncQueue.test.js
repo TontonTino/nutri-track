@@ -7,36 +7,38 @@
  * backend : voir backend/tests/test_security_centre_isolation.py)
  */
 
-const { creerMockDb } = require('../__test-helpers__/mockDatabase');
+import { beforeEach, describe, expect, test, vi } from 'vitest';
+import mockDatabase from '../__test-helpers__/mockDatabase.js';
 
-let mockDb;
+const { creerMockDb } = mockDatabase;
+const { mockDb } = vi.hoisted(() => ({ mockDb: { current: null } }));
 
-jest.mock('../database', () => ({
-  getDb: jest.fn(() => Promise.resolve(mockDb)),
-  initDatabase: jest.fn(() => Promise.resolve(mockDb)),
+vi.mock('../database', () => ({
+  getDb: vi.fn(() => Promise.resolve(mockDb.current)),
+  initDatabase: vi.fn(() => Promise.resolve(mockDb.current)),
 }));
 
-jest.mock('../api', () => ({
-  envoyerDepistage: jest.fn(),
+vi.mock('../api', () => ({
+  envoyerDepistage: vi.fn(),
 }));
 
-const { envoyerDepistage } = require('../api');
-const {
+import { envoyerDepistage } from '../api';
+import {
   enregistrerDepistage,
   getHistorique,
   getNombreEnAttente,
   syncPendingDepistages,
   sontPossiblementLeMemeEvenement,
-} = require('../syncQueue');
+} from '../syncQueue';
 
 beforeEach(() => {
-  mockDb = creerMockDb();
-  envoyerDepistage.mockReset();
+  mockDb.current = creerMockDb();
+  vi.mocked(envoyerDepistage).mockReset();
 });
 
 describe('Parcours hors-ligne complet', () => {
   test('un dépistage saisi sans réseau est stocké localement, classifié et consultable', async () => {
-    envoyerDepistage.mockRejectedValue(new Error('Network request failed'));
+    vi.mocked(envoyerDepistage).mockRejectedValue(new Error('Network request failed'));
 
     const resultat = await enregistrerDepistage({
       population: 'enfant',
@@ -63,7 +65,7 @@ describe('Parcours hors-ligne complet', () => {
 
 describe('Synchronisation au retour réseau', () => {
   test('une saisie hors-ligne se synchronise sans perte ni duplication au retour réseau', async () => {
-    envoyerDepistage.mockRejectedValueOnce(new Error('Network request failed'));
+    vi.mocked(envoyerDepistage).mockRejectedValueOnce(new Error('Network request failed'));
 
     await enregistrerDepistage({
       population: 'personne_agee',
@@ -76,7 +78,7 @@ describe('Synchronisation au retour réseau', () => {
     expect(await getNombreEnAttente()).toBe(1);
 
     // Le réseau revient : le serveur répond correctement cette fois.
-    envoyerDepistage.mockResolvedValue({
+    vi.mocked(envoyerDepistage).mockResolvedValue({
       id: 4242,
       classification: 'dénutrition probable',
       orientation_declenchee: true,
@@ -95,12 +97,12 @@ describe('Synchronisation au retour réseau', () => {
     expect(await getNombreEnAttente()).toBe(0);
 
     // SynchronisationLog rempli : date_synchronisation renseignée.
-    expect(mockDb._tables.synchronisation_log).toHaveLength(1);
-    expect(mockDb._tables.synchronisation_log[0].date_synchronisation).not.toBeNull();
+    expect(mockDb.current._tables.synchronisation_log).toHaveLength(1);
+    expect(mockDb.current._tables.synchronisation_log[0].date_synchronisation).not.toBeNull();
   });
 
   test("une entrée qui échoue encore n'empêche pas la synchronisation des suivantes", async () => {
-    envoyerDepistage.mockRejectedValue(new Error('offline'));
+    vi.mocked(envoyerDepistage).mockRejectedValue(new Error('offline'));
     await enregistrerDepistage({
       population: 'enfant', mesures: { pb: 130 }, agent_id: 'A1', centre_id: 'C1',
     });
@@ -108,7 +110,7 @@ describe('Synchronisation au retour réseau', () => {
       population: 'enfant', mesures: { pb: 130 }, agent_id: 'A2', centre_id: 'C1',
     });
 
-    envoyerDepistage
+    vi.mocked(envoyerDepistage)
       .mockRejectedValueOnce(new Error('toujours hors-ligne pour celle-ci'))
       .mockResolvedValueOnce({ id: 1, classification: 'normal', orientation_declenchee: false });
 
@@ -121,7 +123,7 @@ describe('Synchronisation au retour réseau', () => {
 
 describe('Gestion de conflit — deux saisies du même événement', () => {
   test('deux saisies proches du même agent/centre/population sont conservées toutes les deux et signalées', async () => {
-    envoyerDepistage.mockRejectedValue(new Error('offline'));
+    vi.mocked(envoyerDepistage).mockRejectedValue(new Error('offline'));
 
     await enregistrerDepistage({
       population: 'enfant', mesures: { pb: 112 }, agent_id: 'AGENT_09', centre_id: 'CENTRE_X',
@@ -140,7 +142,7 @@ describe('Gestion de conflit — deux saisies du même événement', () => {
     expect(historique[0].local_id).not.toBe(historique[1].local_id);
 
     // Les deux se synchronisent quand même, comme deux dépistages distincts.
-    envoyerDepistage.mockResolvedValue({ id: 1, classification: 'sévère', orientation_declenchee: true });
+    vi.mocked(envoyerDepistage).mockResolvedValue({ id: 1, classification: 'sévère', orientation_declenchee: true });
     const resultatSync = await syncPendingDepistages();
     expect(resultatSync.succes).toBe(2);
   });
