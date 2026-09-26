@@ -1,5 +1,6 @@
 import csv
 import io
+import time
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from contextlib import asynccontextmanager
@@ -7,11 +8,17 @@ from fastapi import FastAPI, Depends, HTTPException, status, Response
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 from pydantic import BaseModel
 
 from app.database import Base, engine, get_db
 from app import models, schemas, pipeline
+
+# Horodatage du démarrage du serveur pour le calcul d'uptime
+START_TIME = time.time()
+
+# Cache mémoire pour les seuils
+_SEUILS_CACHE: Optional[Dict[str, float]] = None
 
 # Initialiser les tables SQLite/PostgreSQL au démarrage
 Base.metadata.create_all(bind=engine)
@@ -51,8 +58,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="NUTRI-DÉPIST API",
-    description="Backend & Moteur de classification (Conforme PCIMA Burkina Faso 2014 & OMS)",
-    version="1.0.0",
+    description="Backend & Moteur de classification haute performance (Conforme PCIMA Burkina Faso 2014 & OMS)",
+    version="1.1.0",
     lifespan=lifespan
 )
 
@@ -66,22 +73,50 @@ app.add_middleware(
 )
 
 
-def get_current_seuils_dict(db: Session) -> dict:
-    """Charge les seuils dynamiques depuis la base de données."""
-    seuils = db.query(models.Seuils).all()
-    res = {}
-    for s in seuils:
-        res[s.type_mesure] = s.valeur_seuil
-    return res
+def get_current_seuils_dict(db: Session, force_refresh: bool = False) -> dict:
+    """Charge et met en cache les seuils dynamiques depuis la base de données (Sub-millisecond lookup)."""
+    global _SEUILS_CACHE
+    if _SEUILS_CACHE is None or force_refresh:
+        seuils = db.query(models.Seuils).all()
+        _SEUILS_CACHE = {s.type_mesure: s.valeur_seuil for s in seuils}
+    return _SEUILS_CACHE
+
+
+# --- ENDPOINTS SYSTÈME & HEALTH CHECK ---
+
+@app.get("/health", tags=["Système"])
+def health_check(db: Session = Depends(get_db)):
+    """
+    Endpoint de diagnostic système : vérifie l'état de la base de données, 
+    l'uptime du serveur, et la version du protocole actif.
+    """
+    uptime_seconds = round(time.time() - START_TIME, 2)
+    try:
+        db.execute(text("SELECT 1"))
+        db_status = "connected"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+
+    total_depistages = db.query(models.Depistage).count()
+
+    return {
+        "status": "healthy" if db_status == "connected" else "degraded",
+        "database": db_status,
+        "uptime_seconds": uptime_seconds,
+        "protocol": "PCIMA Burkina Faso 2014 / OMS 2006",
+        "engine_version": "1.1.0-optimized",
+        "total_depistages_enregistres": total_depistages,
+        "timestamp": datetime.now(timezone.utc)
+    }
 
 
 # --- ENDPOINTS PRINCIPAUX ---
 
-@app.post("/depistage", response_model=schemas.DepistageResponse, status_code=status.HTTP_201_CREATED)
+@app.post("/depistage", response_model=schemas.DepistageResponse, status_code=status.HTTP_201_CREATED, tags=["Dépistages"])
 def créer_depistage(payload: schemas.DepistageCreate, db: Session = Depends(get_db)):
     """
     Crée un nouveau dépistage.
-    1. Charge les seuils depuis la table de configuration 'seuils'
+    1. Charge les seuils (depuis le cache haute performance)
     2. Exécute le pipeline 4 étapes (Validation, Interprétation, Classification, Orientation)
     3. Enregistre dans Depistage et la table fille spécifique (MesureEnfant, SuiviGrossesse, MesurePersonneAgee)
     """
@@ -119,9 +154,9 @@ def créer_depistage(payload: schemas.DepistageCreate, db: Session = Depends(get
         mode_saisie=payload.mode_saisie
     )
     db.add(depistage)
-    db.flush()  # Récupère depistage.id
+    db.flush()
 
-    # Enregistrement dans les tables de détails spécifiques (selon la population)
+    # Enregistrement dans les tables spécifiques
     if payload.population == "enfant":
         m = payload.mesures
         mesure_enfant = models.MesureEnfant(
@@ -181,7 +216,7 @@ def créer_depistage(payload: schemas.DepistageCreate, db: Session = Depends(get
     return response_data
 
 
-@app.get("/depistage/{id}", response_model=schemas.DepistageResponse)
+@app.get("/depistage/{id}", response_model=schemas.DepistageResponse, tags=["Dépistages"])
 def obtenir_depistage(id: int, db: Session = Depends(get_db)):
     """Récupère un dépistage par son ID."""
     depistage = db.query(models.Depistage).filter(models.Depistage.id == id).first()
@@ -191,7 +226,7 @@ def obtenir_depistage(id: int, db: Session = Depends(get_db)):
     return depistage
 
 
-@app.get("/alertes", response_model=List[schemas.DepistageResponse])
+@app.get("/alertes", response_model=List[schemas.DepistageResponse], tags=["Alertes"])
 def obtenir_alertes(db: Session = Depends(get_db)):
     """Liste tous les dépistages graves/critiques en attente d'orientation."""
     alertes = db.query(models.Depistage).filter(
@@ -200,7 +235,7 @@ def obtenir_alertes(db: Session = Depends(get_db)):
     return alertes
 
 
-@app.get("/seuils", response_model=List[schemas.SeuilResponse])
+@app.get("/seuils", response_model=List[schemas.SeuilResponse], tags=["Configuration Seuils"])
 def obtenir_seuils(db: Session = Depends(get_db)):
     """Liste tous les seuils de configuration actifs."""
     seuils = db.query(models.Seuils).all()
@@ -215,11 +250,11 @@ class UpdateSeuilPayload(BaseModel):
     version_protocole: Optional[str] = "PCIMA Burkina Faso 2014"
 
 
-@app.put("/seuils", response_model=schemas.SeuilResponse)
+@app.put("/seuils", response_model=schemas.SeuilResponse, tags=["Configuration Seuils"])
 def mettre_a_jour_seuil(payload: UpdateSeuilPayload, db: Session = Depends(get_db)):
     """
-    Met à jour la valeur d'un seuil dans la table de configuration et journalise la modification
-    dans JournalValidationSeuils.
+    Met à jour la valeur d'un seuil dans la table de configuration, journalise la modification
+    dans JournalValidationSeuils, et invalide le cache mémoire des seuils.
     """
     seuil = db.query(models.Seuils).filter(
         models.Seuils.population == payload.population,
@@ -250,12 +285,15 @@ def mettre_a_jour_seuil(payload: UpdateSeuilPayload, db: Session = Depends(get_d
     db.commit()
     db.refresh(seuil)
 
+    # Invalider le cache mémoire pour prendre en compte le nouveau seuil instantanément
+    get_current_seuils_dict(db, force_refresh=True)
+
     return seuil
 
 
 # --- ENDPOINTS COMPLÉMENTAIRES (SUIVI & STATISTIQUES DASHBOARD) ---
 
-@app.get("/suivi-grossesse/{personne_id}", response_model=List[schemas.SuiviGrossesseResponse])
+@app.get("/suivi-grossesse/{personne_id}", response_model=List[schemas.SuiviGrossesseResponse], tags=["Suivi Maternité"])
 def obtenir_suivi_grossesse(personne_id: str, db: Session = Depends(get_db)):
     """
     Récupère l'historique des consultations CPN / suivi de grossesse pour une femme donnée.
@@ -267,7 +305,7 @@ def obtenir_suivi_grossesse(personne_id: str, db: Session = Depends(get_db)):
     return suivis
 
 
-@app.get("/stats", response_model=schemas.StatsResponse)
+@app.get("/stats", response_model=schemas.StatsResponse, tags=["Statistiques Dashboard"])
 def obtenir_statistiques(db: Session = Depends(get_db)):
     """
     Fournit un résumé statistique agrégé pour alimenter les tableaux de bord et métriques globales du hackathon.
@@ -291,7 +329,7 @@ def obtenir_statistiques(db: Session = Depends(get_db)):
 
 # --- BONUS EXPORTS & FICHES D'ORIENTATION IMPRIMABLES ---
 
-@app.get("/alertes/export/csv")
+@app.get("/alertes/export/csv", tags=["Exportation & Rapports"])
 def exporter_alertes_csv(db: Session = Depends(get_db)):
     """Exporte la liste de toutes les alertes en fichier CSV téléchargeable."""
     alertes = db.query(models.Depistage).filter(models.Depistage.orientation_declenchee == True).all()
@@ -315,10 +353,10 @@ def exporter_alertes_csv(db: Session = Depends(get_db)):
     )
 
 
-@app.get("/alertes/{id}/fiche-orientation", response_class=HTMLResponse)
+@app.get("/alertes/{id}/fiche-orientation", response_class=HTMLResponse, tags=["Exportation & Rapports"])
 def obtenir_fiche_orientation(id: int, db: Session = Depends(get_db)):
     """
-    Génère une fiche d'orientation médicale d'urgence imprimable (HTML/PDF)
+    Génère une fiche d'orientation médicale d'urgence imprimable (HTML/PDF) 
     conforme à la norme PCIMA Burkina Faso.
     """
     depistage = db.query(models.Depistage).filter(models.Depistage.id == id).first()

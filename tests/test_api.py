@@ -40,6 +40,15 @@ def setup_db():
     Base.metadata.drop_all(bind=engine)
 
 
+def test_health_check_endpoint():
+    res = client.get("/health")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "healthy"
+    assert data["database"] == "connected"
+    assert "uptime_seconds" in data
+
+
 def test_post_depistage_enfant_severe():
     payload = {
         "population": "enfant",
@@ -94,7 +103,7 @@ def test_post_depistage_enceinte_ecart():
 def test_post_depistage_valeur_hors_plage_rejetee():
     payload = {
         "population": "enfant",
-        "mesures": {"pb": 10.0},  # Impossibilité physiologique
+        "mesures": {"pb": 10.0},
         "agent_id": "AGENT_01",
         "centre_id": "CENTRE_A",
         "mode_saisie": "manuel"
@@ -154,7 +163,6 @@ def test_get_and_put_seuils():
 
 
 def test_export_csv_and_fiche_orientation():
-    # 1. Créer un cas sévère
     post_res = client.post("/depistage", json={
         "population": "enfant",
         "mesures": {"pb": 110.0},
@@ -163,13 +171,11 @@ def test_export_csv_and_fiche_orientation():
     })
     dep_id = post_res.json()["id"]
 
-    # 2. Exporter CSV
     csv_res = client.get("/alertes/export/csv")
     assert csv_res.status_code == 200
     assert "text/csv" in csv_res.headers["content-type"]
     assert "Classification" in csv_res.text
 
-    # 3. Fiche d'orientation HTML/PDF
     fiche_res = client.get(f"/alertes/{dep_id}/fiche-orientation")
     assert fiche_res.status_code == 200
     assert "text/html" in fiche_res.headers["content-type"]

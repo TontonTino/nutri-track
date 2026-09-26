@@ -1,13 +1,15 @@
 """
 NUTRI-DÉPIST Classification Engine & Pipeline
-Protocol: PCIMA Burkina Faso (Ministère de la Santé, 2014) & Directive OMS
+Protocol: PCIMA Burkina Faso (Ministère de la Santé, 2014) & Directive OMS 2006
 
 Pipeline en 4 étapes séparées :
 1. Validation Physiologique (Mesure)
-2. Interprétation (avec seuils configurables)
+2. Interprétation (avec seuils configurables & calcul d'indices IMC / Z-Score P/T)
 3. Classification (un seul indicateur sévère suffit, pas de moyenne)
 4. Orientation (statut sévère déclenche toujours une orientation)
 """
+
+import math
 
 class OutOfRangeError(ValueError):
     """Exception levée lorsqu'une mesure est hors plage physiologique."""
@@ -43,6 +45,30 @@ def generer_numero_ma(region: str, district: str, structure: str, annee: int, or
     return f"{region.upper()}/{district.upper()}/{structure.upper()}/{annee}/{ordre:03d}"
 
 
+def calculer_imc(poids_kg: float, taille_cm: float) -> float:
+    """Calcul de l'Indice de Masse Corporelle (IMC = kg / m²)."""
+    if not poids_kg or not taille_cm or taille_cm <= 0:
+        return 0.0
+    taille_m = taille_cm / 100.0
+    return round(poids_kg / (taille_m * taille_m), 2)
+
+
+def estimer_zscore_poids_taille(poids_kg: float, taille_cm: float) -> float:
+    """
+    Estimation de l'indice Poids-pour-Taille (P/T Z-score OMS 2006 / Annexe 5 du Protocole PCIMA).
+    Retourne la déviation estimée en Z-score par rapport à la médiane de référence.
+    """
+    if not poids_kg or not taille_cm or taille_cm <= 0:
+        return 0.0
+    
+    # Médiane approximative P/T OMS : Poids théorique médian = (taille_cm - 45) * 0.22 + 2.5 pour 50-100cm
+    poids_median_ref = (taille_cm - 45.0) * 0.22 + 2.5 if taille_cm >= 45 else 2.5
+    ecart_type_ref = poids_median_ref * 0.12  # ~12% d'écart-type standard OMS
+    
+    zscore = (poids_kg - poids_median_ref) / ecart_type_ref if ecart_type_ref > 0 else 0.0
+    return round(zscore, 2)
+
+
 def valider_mesures_physiologiques(population: str, mesures: dict) -> None:
     """
     Étape 1: Validation Physiologique
@@ -74,7 +100,10 @@ def interpreter_indicateurs(population: str, mesures: dict, seuils: dict) -> dic
 
     if population == "enfant":
         pb = mesures.get("pb")
+        poids = mesures.get("poids")
+        taille = mesures.get("taille")
         oedemes = mesures.get("oedemes_bilateraux", False)
+        
         pb_seuil_severe = seuils.get("pb_severe", 115.0)
         pb_seuil_modere = seuils.get("pb_modere", 125.0)
 
@@ -82,10 +111,21 @@ def interpreter_indicateurs(population: str, mesures: dict, seuils: dict) -> dic
         is_modere = False
         complications = mesures.get("complications_medicales", False)
 
+        # 1. Critère PB (Périmètre Brachial)
         if pb is not None and pb < pb_seuil_severe:
             is_severe = True
         if oedemes is True:
             is_severe = True
+
+        # 2. Critère P/T Z-score (si poids et taille fournis)
+        zscore_pt = 0.0
+        if poids and taille:
+            zscore_pt = estimer_zscore_poids_taille(poids, taille)
+            interpretation["zscore_poids_taille"] = zscore_pt
+            if zscore_pt < -3.0:
+                is_severe = True
+            elif -3.0 <= zscore_pt < -2.0 and not is_severe:
+                is_modere = True
 
         if not is_severe and pb is not None and (pb_seuil_severe <= pb < pb_seuil_modere):
             is_modere = True
@@ -113,6 +153,9 @@ def interpreter_indicateurs(population: str, mesures: dict, seuils: dict) -> dic
         hu = mesures.get("hauteur_uterine")
         sa = mesures.get("semaine_amenorrhee")
         pb = mesures.get("pb")
+        poids = mesures.get("poids")
+        taille = mesures.get("taille")
+        
         tolerance = seuils.get("ecart_hu_max", 3.0)
         pb_enceinte_seuil = seuils.get("pb_enceinte_seuil", 230.0)  # PCIMA Tableau 3 : PB < 230 mm
 
@@ -120,6 +163,10 @@ def interpreter_indicateurs(population: str, mesures: dict, seuils: dict) -> dic
         ecart = abs(hu - hu_attendue) if (hu is not None and hu_attendue is not None) else 0.0
 
         is_pb_faible = (pb is not None and pb < pb_enceinte_seuil)
+        imc = calculer_imc(poids, taille) if (poids and taille) else None
+
+        if imc and imc < 18.5:
+            is_pb_faible = True  # IMC < 18,5 est un critère d'admission PECMAM FEFA (Page 29)
 
         interpretation["hauteur_uterine"] = hu
         interpretation["semaine_amenorrhee"] = sa
@@ -127,6 +174,7 @@ def interpreter_indicateurs(population: str, mesures: dict, seuils: dict) -> dic
         interpretation["ecart_croissance_foetale"] = ecart
         interpretation["ecart_hors_tolerance"] = (ecart > tolerance)
         interpretation["is_pb_faible"] = is_pb_faible
+        interpretation["imc"] = imc
 
     return interpretation
 
@@ -139,7 +187,6 @@ def classer_depistage(population: str, interpretation: dict) -> dict:
     """
     if population == "enfant":
         if interpretation.get("is_severe"):
-            # Distinguer PCA (Ambulatoire) et PCI (Hospitalier/Interne avec œdèmes ou complications)
             if interpretation.get("has_oedemes") or interpretation.get("has_complications"):
                 return {
                     "classification": "sévère",
@@ -181,7 +228,6 @@ def classer_depistage(population: str, interpretation: dict) -> dict:
 
     elif population == "enceinte":
         if interpretation.get("ecart_hors_tolerance"):
-            # RÈGLE STRUCTURANTE : JAMAIS un diagnostic !
             return {
                 "classification": "ecart_suivi_rapproche",
                 "code": "SUIVI_RAPPROCHE",
@@ -192,7 +238,7 @@ def classer_depistage(population: str, interpretation: dict) -> dict:
             return {
                 "classification": "modéré",
                 "code": "PECMAM_FEFA",
-                "message": "Périmètre brachial inférieur au seuil protocolaire (PB < 230 mm)",
+                "message": "Périmètre brachial ou IMC inférieur au seuil protocolaire (PB < 230 mm / IMC < 18,5)",
                 "detail": "Admission en supplémentation nutritionnelle FEFA"
             }
         else:
@@ -248,16 +294,9 @@ def run_pipeline(population: str, mesures: dict, seuils: dict) -> dict:
     """
     Moteur de classification complet exécutant les 4 étapes pures.
     """
-    # 1. Validation physiologique
     valider_mesures_physiologiques(population, mesures)
-
-    # 2. Interprétation
     interpretation = interpreter_indicateurs(population, mesures, seuils)
-
-    # 3. Classification
     classification_res = classer_depistage(population, interpretation)
-
-    # 4. Orientation
     orientation_res = determiner_orientation(classification_res)
 
     return {
