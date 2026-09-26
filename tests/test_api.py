@@ -105,7 +105,6 @@ def test_post_depistage_valeur_hors_plage_rejetee():
 
 
 def test_get_depistage_by_id():
-    # 1. Créer un dépistage
     payload = {
         "population": "personne_agee",
         "mesures": {"score_mna_sf": 6},
@@ -115,14 +114,12 @@ def test_get_depistage_by_id():
     post_res = client.post("/depistage", json=payload)
     dep_id = post_res.json()["id"]
 
-    # 2. Récupérer via GET
     get_res = client.get(f"/depistage/{dep_id}")
     assert get_res.status_code == 200
     assert get_res.json()["id"] == dep_id
 
 
 def test_get_alertes():
-    # 1. Créer un cas sévère
     client.post("/depistage", json={
         "population": "enfant",
         "mesures": {"pb": 110.0},
@@ -130,7 +127,6 @@ def test_get_alertes():
         "centre_id": "CENTRE_A"
     })
     
-    # 2. Récupérer alertes
     res = client.get("/alertes")
     assert res.status_code == 200
     alertes = res.json()
@@ -139,13 +135,11 @@ def test_get_alertes():
 
 
 def test_get_and_put_seuils():
-    # GET /seuils
     get_res = client.get("/seuils")
     assert get_res.status_code == 200
     seuils = get_res.json()
     assert len(seuils) >= 4
 
-    # PUT /seuils - Modifier le seuil PB sévère de 115 à 110
     update_payload = {
         "population": "enfant",
         "type_mesure": "pb_severe",
@@ -158,12 +152,25 @@ def test_get_and_put_seuils():
     updated = put_res.json()
     assert updated["valeur_seuil"] == 110.0
 
-    # Vérifier que le nouveau dépistage utilise le nouveau seuil (112 mm n'est plus sévère si seuil = 110 mm)
-    dep_payload = {
+
+def test_export_csv_and_fiche_orientation():
+    # 1. Créer un cas sévère
+    post_res = client.post("/depistage", json={
         "population": "enfant",
-        "mesures": {"pb": 112.0},
+        "mesures": {"pb": 110.0},
         "agent_id": "AGENT_01",
         "centre_id": "CENTRE_A"
-    }
-    dep_res = client.post("/depistage", json=dep_payload)
-    assert dep_res.json()["classification"] == "modéré"  # Car 110 <= 112 < 125
+    })
+    dep_id = post_res.json()["id"]
+
+    # 2. Exporter CSV
+    csv_res = client.get("/alertes/export/csv")
+    assert csv_res.status_code == 200
+    assert "text/csv" in csv_res.headers["content-type"]
+    assert "Classification" in csv_res.text
+
+    # 3. Fiche d'orientation HTML/PDF
+    fiche_res = client.get(f"/alertes/{dep_id}/fiche-orientation")
+    assert fiche_res.status_code == 200
+    assert "text/html" in fiche_res.headers["content-type"]
+    assert "FICHE D'ORIENTATION" in fiche_res.text

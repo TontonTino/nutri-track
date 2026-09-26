@@ -1,7 +1,10 @@
+import csv
+import io
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Response
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -270,11 +273,9 @@ def obtenir_statistiques(db: Session = Depends(get_db)):
     total_depistages = db.query(models.Depistage).count()
     total_alertes = db.query(models.Depistage).filter(models.Depistage.orientation_declenchee == True).count()
 
-    # Par population
     pop_counts = db.query(models.Depistage.population, func.count(models.Depistage.id)).group_by(models.Depistage.population).all()
     par_population = {pop: count for pop, count in pop_counts}
 
-    # Par classification
     classif_counts = db.query(models.Depistage.classification, func.count(models.Depistage.id)).group_by(models.Depistage.classification).all()
     par_classification = {cl: count for cl, count in classif_counts}
 
@@ -284,3 +285,95 @@ def obtenir_statistiques(db: Session = Depends(get_db)):
         "par_population": par_population,
         "par_classification": par_classification
     }
+
+
+# --- BONUS EXPORTS & FICHES D'ORIENTATION IMPRIMABLES ---
+
+@app.get("/alertes/export/csv")
+def exporter_alertes_csv(db: Session = Depends(get_db)):
+    """Exporte la liste de toutes les alertes en fichier CSV téléchargeable."""
+    alertes = db.query(models.Depistage).filter(models.Depistage.orientation_declenchee == True).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["ID", "Population", "Date", "Agent_ID", "Centre_ID", "Classification", "Mode_Saisie", "Mesures"])
+
+    for a in alertes:
+        writer.writerow([
+            a.id, a.population, a.date.strftime("%Y-%m-%d %H:%M:%S"),
+            a.agent_id, a.centre_id, a.classification, a.mode_saisie, str(a.mesures)
+        ])
+
+    output.seek(0)
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=alertes_nutri_depist.csv"}
+    )
+
+
+@app.get("/alertes/{id}/fiche-orientation", response_class=HTMLResponse)
+def obtenir_fiche_orientation(id: int, db: Session = Depends(get_db)):
+    """
+    Génère une fiche d'orientation médicale d'urgence imprimable (HTML/PDF) 
+    à remettre au patient/accompagnant pour le transfert au centre de référence.
+    """
+    depistage = db.query(models.Depistage).filter(models.Depistage.id == id).first()
+    if not depistage:
+        raise HTTPException(status_code=404, detail="Dépistage non trouvé")
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <title>Fiche d'Orientation Médicale - NUTRI-DÉPIST</title>
+        <style>
+            body {{ font-family: 'Helvetica Neue', Arial, sans-serif; background: #f8fafc; padding: 20px; color: #1e293b; }}
+            .card {{ max-width: 650px; margin: 0 auto; background: white; border-radius: 12px; padding: 30px; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); }}
+            .header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ef4444; padding-bottom: 15px; margin-bottom: 20px; }}
+            .logo {{ font-size: 20px; font-weight: bold; color: #dc2626; letter-spacing: 1px; }}
+            .badge-urgent {{ background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; font-weight: bold; padding: 6px 12px; border-radius: 20px; font-size: 13px; text-transform: uppercase; }}
+            .section-title {{ font-size: 14px; font-weight: bold; text-transform: uppercase; color: #64748b; margin-top: 20px; margin-bottom: 10px; }}
+            .info-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #f8fafc; padding: 15px; border-radius: 8px; font-size: 14px; }}
+            .info-label {{ font-weight: bold; color: #475569; }}
+            .recommandation-box {{ background: #fff1f2; border-left: 4px solid #e11d48; padding: 15px; border-radius: 4px; margin-top: 20px; font-size: 14px; color: #9f1239; }}
+            .footer-sig {{ margin-top: 40px; display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 15px; }}
+            @media print {{ body {{ background: white; padding: 0; }} .card {{ box-shadow: none; border: none; }} }}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <div class="header">
+                <div class="logo">🏥 NUTRI-DÉPIST &bull; FICHE D'ORIENTATION</div>
+                <div class="badge-urgent">PRIORITÉ URGENTE</div>
+            </div>
+
+            <div class="info-grid">
+                <div><span class="info-label">Dépistage N° :</span> #{depistage.id}</div>
+                <div><span class="info-label">Date :</span> {depistage.date.strftime('%d/%m/%Y %H:%M')}</div>
+                <div><span class="info-label">Population :</span> {depistage.population.capitalize()}</div>
+                <div><span class="info-label">Agent Saisisseur :</span> {depistage.agent_id}</div>
+                <div><span class="info-label">Centre d'Origine :</span> {depistage.centre_id}</div>
+                <div><span class="info-label">Classification :</span> <strong>{depistage.classification.upper()}</strong></div>
+            </div>
+
+            <div class="section-title">Mesures Relevées</div>
+            <div style="background: #f1f5f9; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 13px;">
+                {str(depistage.mesures)}
+            </div>
+
+            <div class="recommandation-box">
+                <strong>🚨 RECOMMANDATION ET ORIENTATION DE PRICIPE :</strong><br>
+                Prise en charge médicale et nutritionnelle spécialisée requise. Transfert recommandé vers le Centre de Santé de Référence / Unité UREN.
+            </div>
+
+            <div class="footer-sig">
+                <div>Nutri-Dépist API v1.0 &bull; Document Officiel de Transfert</div>
+                <div>Signature / Tampon Agent : ______________________</div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
