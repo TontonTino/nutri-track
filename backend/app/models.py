@@ -21,6 +21,23 @@ class Depistage(Base):
     mesure_personne_agee = relationship("MesurePersonneAgee", back_populates="depistage", uselist=False, cascade="all, delete-orphan")
 
 
+class CaptureVision(Base):
+    __tablename__ = "capture_vision"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    population = Column(String, nullable=False, index=True)
+    type_mesure = Column(String, nullable=False)  # "pb", "hauteur_uterine"
+    valeur_estimee = Column(Float, nullable=False)
+    score_confiance = Column(Float, nullable=True)  # ex: 0.95
+    image_metadata = Column(JSON, nullable=True)
+    statut_validation = Column(String, default="en_attente", nullable=False)  # "en_attente", "valide", "corrige", "rejete"
+    valeur_validee = Column(Float, nullable=True)
+    agent_id = Column(String, nullable=False)
+    centre_id = Column(String, nullable=False)
+    date_capture = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    depistage_id = Column(Integer, ForeignKey("depistage.id"), nullable=True)
+
+
 class Seuils(Base):
     __tablename__ = "seuils"
 

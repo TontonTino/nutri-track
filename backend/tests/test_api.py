@@ -70,6 +70,39 @@ def test_post_depistage_enfant_severe():
     assert data["id"] is not None
 
 
+def test_capture_vision_and_validation():
+    """TEST: Capture Vision AI -> Validation par l'ASC -> Création Dépistage Officiel"""
+    # 1. Capture Vision AI (Lionel/Vision)
+    capture_payload = {
+        "population": "enfant",
+        "type_mesure": "pb",
+        "valeur_estimee": 112.0,
+        "score_confiance": 0.96,
+        "agent_id": "LIONEL_VISION",
+        "centre_id": "CENTRE_A",
+        "image_metadata": {"filename": "muac_test_01.jpg"}
+    }
+    capture_res = client.post("/capture-vision", json=capture_payload)
+    assert capture_res.status_code == 201
+    capture_data = capture_res.json()
+    assert capture_data["statut_validation"] == "en_attente"
+    capture_id = capture_data["id"]
+
+    # 2. Validation par l'ASC
+    validation_payload = {
+        "valeur_validee": 112.0,
+        "statut_validation": "valide",
+        "agent_id": "ASC_COMMUNAUTAIRE_01",
+        "oedemes_bilateraux": False
+    }
+    val_res = client.post(f"/capture-vision/{capture_id}/validation", json=validation_payload)
+    assert val_res.status_code == 200
+    dep_data = val_res.json()
+    assert dep_data["classification"] == "sévère"
+    assert dep_data["orientation_declenchee"] is True
+    assert dep_data["mode_saisie"] == "ocr_photo"
+
+
 def test_post_depistage_personne_agee():
     payload = {
         "population": "personne_agee",

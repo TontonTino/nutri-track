@@ -59,7 +59,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="NUTRI-DÉPIST API",
     description="Backend & Moteur de classification haute performance (Conforme PCIMA Burkina Faso 2014 & OMS)",
-    version="1.1.0",
+    version="1.2.0",
     lifespan=lifespan
 )
 
@@ -104,9 +104,113 @@ def health_check(db: Session = Depends(get_db)):
         "database": db_status,
         "uptime_seconds": uptime_seconds,
         "protocol": "PCIMA Burkina Faso 2014 / OMS 2006",
-        "engine_version": "1.1.0-optimized",
+        "engine_version": "1.2.0-vision-ai-ready",
         "total_depistages_enregistres": total_depistages,
         "timestamp": datetime.now(timezone.utc)
+    }
+
+
+# --- ENDPOINTS CAPTURE VISION AI (LIONEL & RASMATA) ---
+
+@app.post("/capture-vision", response_model=schemas.CaptureVisionResponse, status_code=status.HTTP_201_CREATED, tags=["Vision AI (Lionel & Rasmata)"])
+def enregistrer_capture_vision(payload: schemas.CaptureVisionCreate, db: Session = Depends(get_db)):
+    """
+    Reçoit la mesure estimée par le module Vision AI (heuristique MVP / caméra).
+    Prépare la capture en attente de validation par l'Agent de Santé Communautaire (ASC).
+    Principe : L'IA assiste, l'ASC valide.
+    """
+    capture = models.CaptureVision(
+        population=payload.population,
+        type_mesure=payload.type_mesure,
+        valeur_estimee=payload.valeur_estimee,
+        score_confiance=payload.score_confiance,
+        image_metadata=payload.image_metadata,
+        statut_validation="en_attente",
+        agent_id=payload.agent_id,
+        centre_id=payload.centre_id,
+        date_capture=datetime.now(timezone.utc)
+    )
+    db.add(capture)
+    db.commit()
+    db.refresh(capture)
+
+    msg = f"Mesure de {payload.type_mesure.upper()} estimée à {payload.valeur_estimee}. Veuillez valider ou corriger la valeur."
+
+    res = schemas.CaptureVisionResponse.model_validate(capture)
+    res.message_asc = msg
+    return res
+
+
+@app.post("/capture-vision/{id}/validation", response_model=schemas.DepistageResponse, status_code=status.HTTP_200_OK, tags=["Vision AI (Lionel & Rasmata)"])
+@app.put("/capture-vision/{id}/validation", response_model=schemas.DepistageResponse, status_code=status.HTTP_200_OK, tags=["Vision AI (Lionel & Rasmata)"])
+def valider_capture_vision(id: int, payload: schemas.CaptureVisionValidationPayload, db: Session = Depends(get_db)):
+    """
+    L'Agent de Santé Communautaire (ASC) valide ou corrige la valeur suggérée par la Vision AI.
+    Une fois validé, exécute le pipeline de classification 4 étapes et enregistre le dépistage officiel.
+    """
+    capture = db.query(models.CaptureVision).filter(models.CaptureVision.id == id).first()
+    if not capture:
+        raise HTTPException(status_code=404, detail="Capture Vision introuvable")
+
+    capture.valeur_validee = payload.valeur_validee
+    capture.statut_validation = payload.statut_validation
+
+    mesures = {}
+    if capture.type_mesure == "pb":
+        mesures["pb"] = payload.valeur_validee
+        mesures["pb_source"] = "vision_ai"
+        mesures["oedemes_bilateraux"] = payload.oedemes_bilateraux
+        mesures["poids"] = payload.poids
+        mesures["taille"] = payload.taille
+    elif capture.type_mesure == "hauteur_uterine":
+        mesures["hauteur_uterine"] = payload.valeur_validee
+        mesures["hauteur_uterine_source"] = "vision_ai"
+        mesures["personne_id"] = payload.personne_id or "FEMME_VISION"
+        mesures["semaine_amenorrhee"] = payload.semaine_amenorrhee or 28
+
+    seuils_dict = get_current_seuils_dict(db)
+
+    try:
+        pipeline_res = pipeline.run_pipeline(
+            population=capture.population,
+            mesures=mesures,
+            seuils=seuils_dict
+        )
+    except pipeline.OutOfRangeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Erreur de mesure après validation: {str(e)}"
+        )
+
+    depistage = models.Depistage(
+        population=capture.population,
+        mesures=mesures,
+        date=datetime.now(timezone.utc),
+        agent_id=payload.agent_id,
+        centre_id=capture.centre_id,
+        classification=pipeline_res["classification"],
+        orientation_declenchee=pipeline_res["orientation_declenchee"],
+        mode_saisie="ocr_photo"
+    )
+    db.add(depistage)
+    db.flush()
+
+    capture.depistage_id = depistage.id
+    db.commit()
+    db.refresh(depistage)
+
+    return {
+        "id": depistage.id,
+        "population": depistage.population,
+        "mesures": depistage.mesures,
+        "date": depistage.date,
+        "agent_id": depistage.agent_id,
+        "centre_id": depistage.centre_id,
+        "classification": depistage.classification,
+        "orientation_declenchee": depistage.orientation_declenchee,
+        "mode_saisie": depistage.mode_saisie,
+        "message": pipeline_res["classification_detail"].get("message"),
+        "recommandation": pipeline_res["orientation"].get("recommandation")
     }
 
 
@@ -273,7 +377,6 @@ def mettre_a_jour_seuil(payload: UpdateSeuilPayload, db: Session = Depends(get_d
         seuil.version_protocole = payload.version_protocole
     seuil.date_application = datetime.now(timezone.utc)
 
-    # Log in JournalValidationSeuils
     journal = models.JournalValidationSeuils(
         seuil_id=seuil.id,
         ancienne_valeur=ancienne_valeur,
@@ -285,7 +388,6 @@ def mettre_a_jour_seuil(payload: UpdateSeuilPayload, db: Session = Depends(get_d
     db.commit()
     db.refresh(seuil)
 
-    # Invalider le cache mémoire pour prendre en compte le nouveau seuil instantanément
     get_current_seuils_dict(db, force_refresh=True)
 
     return seuil

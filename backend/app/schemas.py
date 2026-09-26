@@ -82,6 +82,42 @@ class DepistageResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+# --- Capture Vision AI Schemas ---
+class CaptureVisionCreate(BaseModel):
+    population: str  # "enfant", "enceinte", "personne_agee"
+    type_mesure: str = "pb"  # "pb", "hauteur_uterine"
+    valeur_estimee: float
+    score_confiance: Optional[float] = 0.95
+    image_metadata: Optional[Dict[str, Any]] = None
+    agent_id: str
+    centre_id: str
+
+class CaptureVisionValidationPayload(BaseModel):
+    valeur_validee: float
+    statut_validation: str = "valide"  # "valide", "corrige", "rejete"
+    agent_id: str
+    personne_id: Optional[str] = None
+    semaine_amenorrhee: Optional[int] = None
+    oedemes_bilateraux: bool = False
+    poids: Optional[float] = None
+    taille: Optional[float] = None
+
+class CaptureVisionResponse(BaseModel):
+    id: int
+    population: str
+    type_mesure: str
+    valeur_estimee: float
+    score_confiance: Optional[float] = None
+    statut_validation: str
+    valeur_validee: Optional[float] = None
+    agent_id: str
+    centre_id: str
+    date_capture: datetime
+    depistage_id: Optional[int] = None
+    message_asc: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 # --- Stats Schema ---
 class StatsResponse(BaseModel):
     total_depistages: int
