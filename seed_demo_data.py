@@ -70,7 +70,7 @@ demo_data = [
     }
 ]
 
-print("🌱 Injection des données de démo dans nutri_depist.db...")
+print("[INFO] Injection des donnees de demo dans nutri_depist.db...")
 
 for item in demo_data:
     p_res = pipeline.run_pipeline(item["population"], item["mesures"], seuils_dict)
@@ -86,5 +86,5 @@ for item in demo_data:
     db.add(dep)
 
 db.commit()
-print("✅ Done! 7 dépistages de démo injectés avec succès.")
+print("[OK] 7 depistages de demo injectes avec succes.")
 db.close()
