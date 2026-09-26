@@ -40,6 +40,19 @@ class SuiviGrossesseInput(BaseModel):
     pb: Optional[float] = None
     semaine_amenorrhee: int
 
+class SuiviGrossesseResponse(BaseModel):
+    id: int
+    personne_id: str
+    date_cpn: datetime
+    hauteur_uterine: float
+    hauteur_uterine_source: str
+    pb: Optional[float] = None
+    semaine_amenorrhee: int
+    hauteur_uterine_attendue: float
+    ecart_croissance_foetale: float
+
+    model_config = ConfigDict(from_attributes=True)
+
 class MesurePersonneAgeeInput(BaseModel):
     perimetre_mollet: Optional[float] = None
     pb_optionnel: Optional[float] = None
@@ -68,3 +81,10 @@ class DepistageResponse(BaseModel):
     recommandation: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+# --- Stats Schema ---
+class StatsResponse(BaseModel):
+    total_depistages: int
+    total_alertes: int
+    par_population: Dict[str, int]
+    par_classification: Dict[str, int]

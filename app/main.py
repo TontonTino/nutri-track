@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from pydantic import BaseModel
 
 from app.database import Base, engine, get_db
@@ -69,7 +70,7 @@ def get_current_seuils_dict(db: Session) -> dict:
     return res
 
 
-# --- ENDPOINTS ---
+# --- ENDPOINTS PRINCIPAUX ---
 
 @app.post("/depistage", response_model=schemas.DepistageResponse, status_code=status.HTTP_201_CREATED)
 def créer_depistage(payload: schemas.DepistageCreate, db: Session = Depends(get_db)):
@@ -245,3 +246,41 @@ def mettre_a_jour_seuil(payload: UpdateSeuilPayload, db: Session = Depends(get_d
     db.refresh(seuil)
 
     return seuil
+
+
+# --- ENDPOINTS COMPLÉMENTAIRES (SUIVI & STATISTIQUES DASHBOARD) ---
+
+@app.get("/suivi-grossesse/{personne_id}", response_model=List[schemas.SuiviGrossesseResponse])
+def obtenir_suivi_grossesse(personne_id: str, db: Session = Depends(get_db)):
+    """
+    Récupère l'historique des consultations CPN / suivi de grossesse pour une femme donnée.
+    Permet de suivre la courbe d'évolution de la hauteur utérine au fil des semaines d'aménorrhée.
+    """
+    suivis = db.query(models.SuiviGrossesse).filter(
+        models.SuiviGrossesse.personne_id == personne_id
+    ).order_by(models.SuiviGrossesse.semaine_amenorrhee.asc()).all()
+    return suivis
+
+
+@app.get("/stats", response_model=schemas.StatsResponse)
+def obtenir_statistiques(db: Session = Depends(get_db)):
+    """
+    Fournit un résumé statistique agrégé pour alimenter les tableaux de bord et métriques globales du hackathon.
+    """
+    total_depistages = db.query(models.Depistage).count()
+    total_alertes = db.query(models.Depistage).filter(models.Depistage.orientation_declenchee == True).count()
+
+    # Par population
+    pop_counts = db.query(models.Depistage.population, func.count(models.Depistage.id)).group_by(models.Depistage.population).all()
+    par_population = {pop: count for pop, count in pop_counts}
+
+    # Par classification
+    classif_counts = db.query(models.Depistage.classification, func.count(models.Depistage.id)).group_by(models.Depistage.classification).all()
+    par_classification = {cl: count for cl, count in classif_counts}
+
+    return {
+        "total_depistages": total_depistages,
+        "total_alertes": total_alertes,
+        "par_population": par_population,
+        "par_classification": par_classification
+    }
