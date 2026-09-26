@@ -82,6 +82,21 @@ class DepistageResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class DepistageBatchCreate(BaseModel):
+    items: List[DepistageCreate]
+
+class DepistageBatchItemResult(BaseModel):
+    index: int
+    status: str  # "success" ou "error"
+    depistage: Optional[DepistageResponse] = None
+    error: Optional[str] = None
+
+class DepistageBatchResponse(BaseModel):
+    processed: int
+    success_count: int
+    error_count: int
+    results: List[DepistageBatchItemResult]
+
 # --- Capture Vision AI Schemas ---
 class CaptureVisionCreate(BaseModel):
     depistage_id: Optional[Any] = None

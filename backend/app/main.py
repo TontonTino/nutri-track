@@ -361,6 +361,110 @@ def créer_depistage(payload: schemas.DepistageCreate, db: Session = Depends(get
     return response_data
 
 
+@app.post("/depistage/batch", response_model=schemas.DepistageBatchResponse, status_code=status.HTTP_201_CREATED, tags=["Dépistages"])
+def créer_depistages_en_lot(payload: schemas.DepistageBatchCreate, db: Session = Depends(get_db)):
+    """
+    Traitement par lot (Batch Sync) pour synchroniser plusieurs dépistages hors-ligne en 1 seule requête HTTP.
+    Optimisé pour les réseaux 2G/3G lents en milieu rural.
+    """
+    seuils_dict = get_current_seuils_dict(db)
+    results = []
+    success_count = 0
+    error_count = 0
+
+    for idx, item in enumerate(payload.items):
+        try:
+            pipeline_res = pipeline.run_pipeline(
+                population=item.population,
+                mesures=item.mesures,
+                seuils=seuils_dict
+            )
+            classification = pipeline_res["classification"]
+            orientation_declenchee = pipeline_res["orientation_declenchee"]
+
+            depistage = models.Depistage(
+                population=item.population,
+                mesures=item.mesures,
+                date=datetime.now(timezone.utc),
+                agent_id=item.agent_id,
+                centre_id=item.centre_id,
+                classification=classification,
+                orientation_declenchee=orientation_declenchee,
+                mode_saisie=item.mode_saisie
+            )
+            db.add(depistage)
+            db.flush()
+
+            if item.population == "enfant":
+                m = item.mesures
+                db.add(models.MesureEnfant(
+                    depistage_id=depistage.id,
+                    pb=m.get("pb"),
+                    pb_source=m.get("pb_source", "manuel"),
+                    poids=m.get("poids"),
+                    taille=m.get("taille"),
+                    oedemes_bilateraux=m.get("oedemes_bilateraux", False),
+                    oedemes_source=m.get("oedemes_source", "clinique")
+                ))
+            elif item.population == "personne_agee":
+                m = item.mesures
+                db.add(models.MesurePersonneAgee(
+                    depistage_id=depistage.id,
+                    perimetre_mollet=m.get("perimetre_mollet"),
+                    pb_optionnel=m.get("pb_optionnel"),
+                    perte_poids_recente=m.get("perte_poids_recente"),
+                    score_mna_sf=m.get("score_mna_sf")
+                ))
+            elif item.population == "enceinte":
+                m = item.mesures
+                interp = pipeline_res["interpretation"]
+                db.add(models.SuiviGrossesse(
+                    personne_id=m.get("personne_id", "UNKNOWN"),
+                    date_cpn=datetime.now(timezone.utc),
+                    hauteur_uterine=m.get("hauteur_uterine"),
+                    hauteur_uterine_source=m.get("hauteur_uterine_source", "mètre_ruban"),
+                    pb=m.get("pb"),
+                    semaine_amenorrhee=m.get("semaine_amenorrhee"),
+                    hauteur_uterine_attendue=interp.get("hauteur_uterine_attendue", 0.0),
+                    ecart_croissance_foetale=interp.get("ecart_croissance_foetale", 0.0)
+                ))
+
+            resp_item = schemas.DepistageResponse(
+                id=depistage.id,
+                population=depistage.population,
+                mesures=depistage.mesures,
+                date=depistage.date,
+                agent_id=depistage.agent_id,
+                centre_id=depistage.centre_id,
+                classification=depistage.classification,
+                orientation_declenchee=depistage.orientation_declenchee,
+                mode_saisie=depistage.mode_saisie,
+                message=pipeline_res["classification_detail"].get("message"),
+                recommandation=pipeline_res["orientation"].get("recommandation")
+            )
+            results.append(schemas.DepistageBatchItemResult(
+                index=idx,
+                status="success",
+                depistage=resp_item
+            ))
+            success_count += 1
+        except Exception as e:
+            error_count += 1
+            results.append(schemas.DepistageBatchItemResult(
+                index=idx,
+                status="error",
+                error=str(e)
+            ))
+
+    db.commit()
+    return schemas.DepistageBatchResponse(
+        processed=len(payload.items),
+        success_count=success_count,
+        error_count=error_count,
+        results=results
+    )
+
+
 @app.get("/depistage/{id}", response_model=schemas.DepistageResponse, tags=["Dépistages"])
 def obtenir_depistage(id: int, db: Session = Depends(get_db)):
     """Récupère un dépistage par son ID."""
@@ -507,6 +611,7 @@ def obtenir_fiche_orientation(id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Dépistage non trouvé")
 
     num_ma = pipeline.generer_numero_ma("RBM", "DDG", depistage.centre_id, depistage.date.year, depistage.id)
+    qr_code_svg = pipeline.generer_qr_code_svg(num_ma, width=110)
 
     html_content = f"""
     <!DOCTYPE html>
@@ -516,12 +621,13 @@ def obtenir_fiche_orientation(id: int, db: Session = Depends(get_db)):
         <title>Fiche d'Orientation Médicale - PCIMA Burkina Faso</title>
         <style>
             body {{ font-family: 'Helvetica Neue', Arial, sans-serif; background: #f8fafc; padding: 20px; color: #1e293b; }}
-            .card {{ max-width: 650px; margin: 0 auto; background: white; border-radius: 12px; padding: 30px; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); }}
+            .card {{ max-width: 680px; margin: 0 auto; background: white; border-radius: 12px; padding: 30px; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); }}
             .header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ef4444; padding-bottom: 15px; margin-bottom: 20px; }}
             .logo {{ font-size: 18px; font-weight: bold; color: #dc2626; letter-spacing: 0.5px; }}
             .badge-urgent {{ background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; font-weight: bold; padding: 6px 12px; border-radius: 20px; font-size: 13px; text-transform: uppercase; }}
+            .top-bar {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; }}
             .section-title {{ font-size: 14px; font-weight: bold; text-transform: uppercase; color: #64748b; margin-top: 20px; margin-bottom: 10px; }}
-            .info-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #f8fafc; padding: 15px; border-radius: 8px; font-size: 14px; }}
+            .info-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 14px; }}
             .info-label {{ font-weight: bold; color: #475569; }}
             .recommandation-box {{ background: #fff1f2; border-left: 4px solid #e11d48; padding: 15px; border-radius: 4px; margin-top: 20px; font-size: 14px; color: #9f1239; }}
             .footer-sig {{ margin-top: 40px; display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 15px; }}
@@ -535,13 +641,19 @@ def obtenir_fiche_orientation(id: int, db: Session = Depends(get_db)):
                 <div class="badge-urgent">PRIORITÉ URGENTE</div>
             </div>
 
-            <div class="info-grid">
-                <div><span class="info-label">Numéro Unique MA :</span> <code>{num_ma}</code></div>
-                <div><span class="info-label">Date :</span> {depistage.date.strftime('%d/%m/%Y %H:%M')}</div>
-                <div><span class="info-label">Population :</span> {depistage.population.capitalize()}</div>
-                <div><span class="info-label">Agent Saisisseur :</span> {depistage.agent_id}</div>
-                <div><span class="info-label">Centre d'Origine :</span> {depistage.centre_id}</div>
-                <div><span class="info-label">Classification :</span> <strong>{depistage.classification.upper()}</strong></div>
+            <div class="top-bar">
+                <div class="info-grid" style="flex-grow: 1;">
+                    <div><span class="info-label">Numéro Unique MA :</span> <code style="font-size:15px; font-weight:bold; color:#0f172a;">{num_ma}</code></div>
+                    <div><span class="info-label">Date :</span> {depistage.date.strftime('%d/%m/%Y %H:%M')}</div>
+                    <div><span class="info-label">Population :</span> {depistage.population.capitalize()}</div>
+                    <div><span class="info-label">Agent Saisisseur :</span> {depistage.agent_id}</div>
+                    <div><span class="info-label">Centre d'Origine :</span> {depistage.centre_id}</div>
+                    <div><span class="info-label">Classification :</span> <strong style="color:#dc2626;">{depistage.classification.upper()}</strong></div>
+                </div>
+                <div style="margin-left: 20px; text-align: center;">
+                    {qr_code_svg}
+                    <div style="font-size: 10px; color: #64748b; margin-top: 4px; font-weight: bold;">SCAN SMARTPHONE</div>
+                </div>
             </div>
 
             <div class="section-title">Mesures Relevées</div>

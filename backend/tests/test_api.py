@@ -270,3 +270,51 @@ def test_fanta_mobile_payloads_and_vision_compatibility():
     val_data = val_res.json()
     assert val_data["classification"] == "sévère"
 
+
+def test_depistage_batch_sync():
+    """Test synchronisation par lot (POST /depistage/batch) pour l'enregistrement hors-ligne."""
+    batch_payload = {
+        "items": [
+            {
+                "population": "enfant",
+                "mesures": {"pb": 105.0},
+                "agent_id": "RASMATA_OFFLINE",
+                "centre_id": "CSPS_Kari",
+                "mode_saisie": "hors_ligne"
+            },
+            {
+                "population": "personne_agee",
+                "mesures": {"score_mna_sf": 5},
+                "agent_id": "RASMATA_OFFLINE",
+                "centre_id": "CSPS_Kari",
+                "mode_saisie": "hors_ligne"
+            }
+        ]
+    }
+    res = client.post("/depistage/batch", json=batch_payload)
+    assert res.status_code == 201
+    data = res.json()
+    assert data["processed"] == 2
+    assert data["success_count"] == 2
+    assert data["error_count"] == 0
+    assert len(data["results"]) == 2
+    assert data["results"][0]["depistage"]["classification"] == "sévère"
+    assert data["results"][1]["depistage"]["classification"] == "dénutrition probable"
+
+
+def test_fiche_orientation_qr_code():
+    """Test la présence du code QR vectoriel SVG sur la fiche d'orientation imprimable."""
+    post_res = client.post("/depistage", json={
+        "population": "enfant",
+        "mesures": {"pb": 110.0},
+        "agent_id": "AGENT_01",
+        "centre_id": "CSPS_Kari"
+    })
+    dep_id = post_res.json()["id"]
+
+    fiche_res = client.get(f"/alertes/{dep_id}/fiche-orientation")
+    assert fiche_res.status_code == 200
+    assert "<svg" in fiche_res.text
+    assert "SCAN SMARTPHONE" in fiche_res.text
+
+

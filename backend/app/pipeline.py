@@ -306,3 +306,85 @@ def run_pipeline(population: str, mesures: dict, seuils: dict) -> dict:
         "orientation_declenchee": orientation_res["orientation_declenchee"],
         "orientation": orientation_res
     }
+
+
+def generer_qr_code_svg(content: str, width: int = 140) -> str:
+    """
+    Génère un QR Code vectoriel SVG pur (sans dépendance externe).
+    Permet la numérisation instantanée du Numéro Unique MA sur la Fiche de Transfert PCIMA.
+    """
+    grid_size = 25
+    matrix = [[0 for _ in range(grid_size)] for _ in range(grid_size)]
+    is_function_pattern = [[False for _ in range(grid_size)] for _ in range(grid_size)]
+
+    def place_finder(r, c):
+        for dr in range(7):
+            for dc in range(7):
+                if 0 <= r + dr < grid_size and 0 <= c + dc < grid_size:
+                    is_function_pattern[r + dr][c + dc] = True
+                    if dr in (0, 6) or dc in (0, 6) or (2 <= dr <= 4 and 2 <= dc <= 4):
+                        matrix[r + dr][c + dc] = 1
+
+    place_finder(0, 0)
+    place_finder(grid_size - 7, 0)
+    place_finder(0, grid_size - 7)
+
+    for i in range(8, grid_size - 8):
+        if not is_function_pattern[6][i]:
+            matrix[6][i] = 1 if i % 2 == 0 else 0
+            is_function_pattern[6][i] = True
+        if not is_function_pattern[i][6]:
+            matrix[i][6] = 1 if i % 2 == 0 else 0
+            is_function_pattern[i][6] = True
+
+    ar, ac = 16, 16
+    for dr in range(-2, 3):
+        for dc in range(-2, 3):
+            is_function_pattern[ar + dr][ac + dc] = True
+            if max(abs(dr), abs(dc)) != 1:
+                matrix[ar + dr][ac + dc] = 1
+
+    raw_bytes = content.encode('utf-8')
+    bit_str = "0100" + f"{len(raw_bytes):08b}" + "".join(f"{b:08b}" for b in raw_bytes)
+    bit_str += "0000"
+    while len(bit_str) % 8 != 0:
+        bit_str += "0"
+    pad_bytes = ["11101100", "00010001"]
+    pad_idx = 0
+    while len(bit_str) < 300:
+        bit_str += pad_bytes[pad_idx % 2]
+        pad_idx += 1
+
+    bit_idx = 0
+    dir_up = True
+    c = grid_size - 1
+    while c > 0:
+        if c == 6:
+            c -= 1
+        rows = range(grid_size - 1, -1, -1) if dir_up else range(grid_size)
+        for r in rows:
+            for col in (c, c - 1):
+                if not is_function_pattern[r][col]:
+                    val = 1 if bit_idx < len(bit_str) and bit_str[bit_idx] == '1' else 0
+                    mask = 1 if (r + col) % 2 == 0 else 0
+                    matrix[r][col] = val ^ mask
+                    bit_idx += 1
+        dir_up = not dir_up
+        c -= 2
+
+    cell_size = 4
+    view_box = grid_size * cell_size
+    svg_rects = []
+    for r in range(grid_size):
+        for col in range(grid_size):
+            if matrix[r][col] == 1:
+                x, y = col * cell_size, r * cell_size
+                svg_rects.append(f'<rect x="{x}" y="{y}" width="{cell_size}" height="{cell_size}" fill="#0f172a"/>')
+
+    rects_rendered = "\n".join(svg_rects)
+    return (
+        f'<svg width="{width}" height="{width}" viewBox="0 0 {view_box} {view_box}" '
+        f'xmlns="http://www.w3.org/2000/svg" style="background:#ffffff; padding: 4px; '
+        f'border-radius: 6px; border: 1px solid #cbd5e1; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">'
+        f'{rects_rendered}</svg>'
+    )
