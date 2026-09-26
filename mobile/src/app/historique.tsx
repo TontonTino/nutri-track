@@ -1,9 +1,11 @@
 // Historique : liste chronologique des dépistages + courbe de suivi de grossesse (hauteur utérine dans le temps).
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BoutonPrincipal } from '../components/BoutonPrincipal';
 import { CourbeGrossesse, type PointCourbe } from '../components/CourbeGrossesse';
 import { couleurClassification, couleurs } from '../constants/theme';
+import { useSynchro } from '../data/SynchroContext';
 import { dateCpn, type EnregistrementHistorique, listerDepistages, suiviGrossesseDe } from '../data/historique';
 import { categorieDe, libelleDe, nomPopulation, resumeMesures } from '../services/presentation';
 import type { Echelle } from '../theme/echelle';
@@ -43,23 +45,34 @@ function Pastilles<T extends string>({ options, valeur, onChange }: { options: {
 
 export default function Historique() {
   const styles = useStyles(creerStyles);
+  const { nombreEnAttente, enSynchronisation, forcerSync } = useSynchro();
   const [donnees, setDonnees] = useState<EnregistrementHistorique[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [filtre, setFiltre] = useState<Filtre>('tous');
   const [patienteChoisie, setPatienteChoisie] = useState<string | null>(null);
 
-  // Rechargé à chaque retour sur l'écran, pour voir le dépistage qui vient d'être fait.
-  useFocusEffect(
-    useCallback(() => {
-      let actif = true;
-      listerDepistages()
-        .then((d) => actif && (setDonnees(d), setErreur(null)))
-        .catch(() => actif && setErreur("Impossible de lire l'historique enregistré sur ce téléphone."));
-      return () => {
-        actif = false;
-      };
-    }, []),
-  );
+  const monte = useRef(true);
+  useEffect(() => {
+    monte.current = true;
+    return () => {
+      monte.current = false;
+    };
+  }, []);
+
+  const charger = useCallback(() => {
+    listerDepistages()
+      .then((d) => {
+        if (!monte.current) return;
+        setDonnees(d);
+        setErreur(null);
+      })
+      .catch(() => monte.current && setErreur("Impossible de lire l'historique enregistré sur ce téléphone."));
+  }, []);
+
+  // Rechargé à chaque retour sur l'écran (pour voir le dépistage qui vient d'être fait)
+  // et à chaque changement d'état de la synchronisation.
+  useFocusEffect(useCallback(() => charger(), [charger]));
+  useEffect(() => charger(), [charger, nombreEnAttente, enSynchronisation]);
 
   const patientes = useMemo(() => {
     const vues: string[] = [];
@@ -81,6 +94,15 @@ export default function Historique() {
 
   const entete = (
     <View>
+      {nombreEnAttente > 0 ? (
+        <BoutonPrincipal
+          titre={`Synchroniser maintenant (${nombreEnAttente})`}
+          secondaire
+          chargement={enSynchronisation}
+          onPress={() => void forcerSync()}
+          testID="bouton-synchroniser"
+        />
+      ) : null}
       <Pastilles options={FILTRES} valeur={filtre} onChange={setFiltre} />
 
       {patiente ? (
@@ -145,6 +167,9 @@ export default function Historique() {
                 {libelleDe(item.population, item.classification)}
               </Text>
             </View>
+            {item.provisoire ? <Text style={styles.note}>Résultat provisoire : à confirmer par le serveur</Text> : null}
+            {!item.synchronise ? <Text style={styles.attente}>En attente de synchronisation</Text> : null}
+            {item.conflit_ambigu ? <Text style={styles.attente}>Possible doublon : conservé, à vérifier par le centre de santé</Text> : null}
             {item.orientation_declenchee ? <Text style={styles.orientation}>Orientation vers un centre de santé déclenchée</Text> : null}
             {item.oedemes_incertains ? <Text style={styles.note}>Œdèmes incertains : à confirmer par le test de pression</Text> : null}
           </View>
@@ -199,6 +224,7 @@ const creerStyles = (t: Echelle) =>
     etiquetteTexte: { fontSize: t.police.aide, fontWeight: '700' },
     orientation: { fontSize: t.police.aide, fontWeight: '700', color: couleurs.erreur },
     note: { fontSize: t.police.aide, color: couleurs.texteSecondaire, fontStyle: 'italic' },
+    attente: { fontSize: t.police.aide, color: '#92400E', fontWeight: '600' },
     vide: { padding: t.espace.xl, alignItems: 'center' },
     videTexte: { fontSize: t.police.corps, color: couleurs.texteSecondaire, textAlign: 'center' },
   });

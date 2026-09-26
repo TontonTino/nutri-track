@@ -20,6 +20,8 @@ export default function Resultat() {
     recommandation?: string;
     oedemes_incertains?: string;
     historique_ok?: string;
+    provisoire?: string;
+    doublon?: string;
   }>();
 
   const population = POPULATIONS.find((p) => p === params.population);
@@ -60,6 +62,20 @@ export default function Resultat() {
           ) : null}
         </View>
 
+        {params.provisoire === '1' ? (
+          <View style={styles.avertissement} accessibilityRole="alert" testID="avertissement-provisoire">
+            <Text style={styles.avertissementTexte}>
+              {"Résultat provisoire, calculé sur ce téléphone sans connexion. Il sera confirmé automatiquement par le serveur dès que le réseau reviendra."}
+            </Text>
+          </View>
+        ) : null}
+        {params.doublon === '1' ? (
+          <View style={styles.avertissement} accessibilityRole="alert" testID="avertissement-doublon">
+            <Text style={styles.avertissementTexte}>
+              {"Ce dépistage ressemble à un autre saisi récemment par le même agent. Les deux sont conservés ; le centre de santé sera informé."}
+            </Text>
+          </View>
+        ) : null}
         {params.oedemes_incertains === '1' ? (
           <View style={styles.avertissement} accessibilityRole="alert" testID="avertissement-oedemes">
             <Text style={styles.avertissementTexte}>

@@ -7,3 +7,10 @@ export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost
 // Valeurs provisoires tant qu'il n'y a pas d'authentification (hors périmètre du MVP).
 export const AGENT_ID = 'agent-demo';
 export const CENTRE_ID = 'centre-demo';
+
+// Au-delà de ce délai sans réponse du serveur, l'app considère qu'il n'y a pas de connexion utilisable.
+export const DELAI_RESEAU_MS = 8000;
+
+// Nouvelle tentative de synchronisation tant que des dépistages restent en attente (serveur injoignable
+// alors que le réseau est présent : le module de synchronisation ne détecte alors aucun retour de réseau).
+export const INTERVALLE_RELANCE_SYNC_MS = 60000;

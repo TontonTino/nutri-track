@@ -93,10 +93,22 @@ describe("postDepistage contre l'API réelle (fetch simulé)", () => {
     expect(e.champ).toBe('poids');
     expect(e.message.startsWith('Erreur de mesure')).toBe(false);
   });
-  it('réseau coupé -> erreur claire, données conservées', async () => {
+  it('réseau coupé -> erreur « hors_ligne » (le dépistage sera enregistré en local)', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Network request failed')));
     const { postDepistage, construireRequete } = await chargerApi(false);
-    await expect(postDepistage(construireRequete('enfant', enfant(112)))).rejects.toMatchObject({ kind: 'reseau' });
+    await expect(postDepistage(construireRequete('enfant', enfant(112)))).rejects.toMatchObject({ kind: 'hors_ligne' });
+  });
+  it('serveur qui ne répond pas dans le délai -> « hors_ligne »', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init: { signal: AbortSignal }) => new Promise((_res, rej) => init.signal.addEventListener('abort', () => rej(new Error('abort'))))),
+    );
+    const { postDepistage, construireRequete } = await chargerApi(false);
+    const attente = postDepistage(construireRequete('enfant', enfant(112))).catch((e) => e);
+    await vi.advanceTimersByTimeAsync(8001);
+    expect((await attente).kind).toBe('hors_ligne');
+    vi.useRealTimers();
   });
   it('réponse 500 -> erreur réseau, sans planter', async () => {
     vi.stubGlobal(

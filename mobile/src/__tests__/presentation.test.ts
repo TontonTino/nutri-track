@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACTION_ECART_GROSSESSE, actionAffichee, actionParDefaut, categorieDe, ECART_GROSSESSE, libelleDe, resumeMesures } from '../services/presentation';
+import { ACTION_A_CONFIRMER, ACTION_ECART_GROSSESSE, actionAffichee, actionParDefaut, categorieDe, ECART_GROSSESSE, libelleDe, resumeMesures } from '../services/presentation';
 
 describe('categorieDe', () => {
   it.each([
@@ -81,5 +81,21 @@ describe('actionAffichee', () => {
     expect(t).toBe(ACTION_ECART_GROSSESSE);
     expect(t).not.toContain('Transfert');
     expect(t.toLowerCase()).not.toContain('diagnostic confirmé');
+  });
+});
+
+describe('classifications provisoires du module hors ligne', () => {
+  it('« à_confirmer_en_ligne » est présenté clairement, sans planter ni faire croire à un résultat', () => {
+    expect(libelleDe('enceinte', 'à_confirmer_en_ligne')).toBe('À confirmer en ligne');
+    expect(categorieDe('à_confirmer_en_ligne')).toBe('inconnu');
+    expect(actionAffichee('à_confirmer_en_ligne', null, false)).toBe(ACTION_A_CONFIRMER);
+  });
+  it("« inconnue » (population non reconnue par le classifieur local) reste un résultat non reconnu", () => {
+    expect(libelleDe('enfant', 'inconnue')).toBe('Résultat non reconnu');
+  });
+  it('les classifications locales de Rasmata sont reconnues comme celles du serveur', () => {
+    for (const [brut, cat] of [['sévère', 'severe'], ['modéré', 'modere'], ['normal', 'normal'], ['dénutrition probable', 'severe'], ['ecart_suivi_rapproche', 'modere']] as const) {
+      expect(categorieDe(brut)).toBe(cat);
+    }
   });
 });

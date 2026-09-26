@@ -1,6 +1,6 @@
 // Seul point d'entrée réseau de l'application : les écrans n'appellent jamais fetch directement.
 // Passer du mock à l'API réelle = changer USE_MOCK dans constants/config.ts.
-import { AGENT_ID, API_BASE_URL, CENTRE_ID, USE_MOCK } from '../constants/config';
+import { AGENT_ID, API_BASE_URL, CENTRE_ID, DELAI_RESEAU_MS, USE_MOCK } from '../constants/config';
 import type { DepistageRequest, DepistageResponse, Mesures, Population } from '../types/depistage';
 import { ApiError } from './apiError';
 import { mockDepistage } from './mockDepistage';
@@ -32,15 +32,21 @@ export async function postDepistage(req: DepistageRequest): Promise<DepistageRes
   verifierPlages(req.population, req.mesures);
   if (USE_MOCK) return mockDepistage(req);
 
+  // Sans délai maximal, un réseau qui « accroche » bloquerait l'agent : on abandonne et on enregistre en local.
+  const controle = new AbortController();
+  const minuteur = setTimeout(() => controle.abort(), DELAI_RESEAU_MS);
   let res: Response;
   try {
     res = await fetch(`${API_BASE_URL}/depistage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),
+      signal: controle.signal,
     });
   } catch {
-    throw new ApiError('reseau', 'Serveur injoignable. Vos données sont conservées, réessayez.');
+    throw new ApiError('hors_ligne', 'Serveur injoignable.');
+  } finally {
+    clearTimeout(minuteur);
   }
 
   const corps: unknown = await res.json().catch(() => null);

@@ -1,6 +1,7 @@
 // 'hors_plage' : l'API a rejeté une valeur (le champ fautif est indiqué).
-// 'reseau'     : serveur injoignable ou réponse inattendue (le formulaire est conservé).
-export type ApiErrorKind = 'hors_plage' | 'reseau';
+// 'hors_ligne' : serveur injoignable ou trop lent (pas de réseau) : le dépistage est enregistré en local.
+// 'reseau'     : le serveur a répondu par une erreur inattendue (le formulaire est conservé).
+export type ApiErrorKind = 'hors_plage' | 'hors_ligne' | 'reseau';
 
 export class ApiError extends Error {
   constructor(

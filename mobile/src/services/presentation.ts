@@ -41,6 +41,7 @@ export function categorieDe(classificationBrute: string): Categorie {
 export function libelleDe(population: Population, classificationBrute: string): string {
   const cle = normaliser(classificationBrute);
   if (cle === 'ecart suivi rapproche') return ECART_GROSSESSE;
+  if (cle === 'a confirmer en ligne') return 'À confirmer en ligne';
   switch (categorieDe(classificationBrute)) {
     case 'normal':
       return population === 'enceinte' ? 'Dans la référence' : population === 'personne_agee' ? 'Situation normale' : 'Normal';
@@ -100,11 +101,16 @@ export function resumeMesures(population: Population, mesures: Record<string, un
 export const ACTION_ECART_GROSSESSE =
   "Un écart de hauteur utérine est un signal de suivi, pas un diagnostic. Programmer un suivi rapproché : nouvelle mesure à la prochaine consultation.";
 
+export const ACTION_A_CONFIRMER =
+  'Le dépistage est enregistré sur ce téléphone. Il sera classé dès que le réseau reviendra ; en cas de doute, orienter vers un centre de santé.';
+
 export function actionAffichee(
   classificationBrute: string,
   recommandationServeur: string | null | undefined,
   orientationDeclenchee: boolean,
 ): string {
-  if (normaliser(classificationBrute) === 'ecart suivi rapproche') return ACTION_ECART_GROSSESSE;
+  const cle = normaliser(classificationBrute);
+  if (cle === 'ecart suivi rapproche') return ACTION_ECART_GROSSESSE;
+  if (cle === 'a confirmer en ligne') return ACTION_A_CONFIRMER;
   return recommandationServeur || actionParDefaut(categorieDe(classificationBrute), orientationDeclenchee);
 }
