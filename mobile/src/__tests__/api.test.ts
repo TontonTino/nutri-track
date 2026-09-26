@@ -91,7 +91,7 @@ describe("postDepistage contre l'API réelle (fetch simulé)", () => {
     expect(e.name).toBe('ApiError'); // pas instanceof : resetModules recharge la classe
     expect(e.kind).toBe('hors_plage');
     expect(e.champ).toBe('poids');
-    expect(e.message.startsWith('Erreur de mesure')).toBe(false);
+    expect(e.message).toBe('Poids : 200 kg est en dehors des valeurs possibles (1,5 à 35 kg). Vérifiez la mesure.');
   });
   it('réseau coupé -> erreur « hors_ligne » (le dépistage sera enregistré en local)', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Network request failed')));

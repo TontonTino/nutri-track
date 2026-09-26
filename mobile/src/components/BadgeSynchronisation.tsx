@@ -11,7 +11,7 @@ export function BadgeSynchronisation() {
   if (!nombreEnAttente && !enSynchronisation) return null;
   return (
     <View style={styles.conteneur} accessibilityLiveRegion="polite" testID="badge-synchronisation">
-      {enSynchronisation ? <ActivityIndicator size="small" color="#92400e" style={styles.spinner} /> : null}
+      {enSynchronisation ? <ActivityIndicator size="small" color="#6B5E3C" style={styles.spinner} /> : null}
       <Text style={styles.texte}>
         {enSynchronisation
           ? 'Synchronisation en cours…'
@@ -27,12 +27,12 @@ const creerStyles = (t: Echelle) =>
       flexDirection: 'row',
       alignItems: 'center',
       alignSelf: 'center',
-      backgroundColor: '#FEF3C7',
+      backgroundColor: '#EFEDE6',
       borderRadius: t.rayon.l * 2,
       paddingVertical: t.espace.xs,
       paddingHorizontal: t.espace.m,
       marginVertical: t.espace.s,
     },
     spinner: { marginRight: t.espace.s },
-    texte: { fontSize: t.police.aide, color: '#92400E', fontWeight: '600' },
+    texte: { fontSize: t.police.aide, color: '#6B5E3C', fontWeight: '600' },
   });

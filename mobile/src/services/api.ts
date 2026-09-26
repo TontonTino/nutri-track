@@ -4,7 +4,7 @@ import { AGENT_ID, API_BASE_URL, CENTRE_ID, DELAI_RESEAU_MS, USE_MOCK } from '..
 import type { DepistageRequest, DepistageResponse, Mesures, Population } from '../types/depistage';
 import { ApiError } from './apiError';
 import { mockDepistage } from './mockDepistage';
-import { verifierPlages } from './plages';
+import { messageHorsPlage, verifierPlages } from './plages';
 
 export function construireRequete(population: Population, mesures: Mesures, modeSaisie = 'manuel'): DepistageRequest {
   return {
@@ -23,7 +23,11 @@ export function champDepuisMessage(detail: string): string | undefined {
   return /mesure '([^']+)'/.exec(detail)?.[1];
 }
 
-function nettoyer(detail: string): string {
+// Message du serveur (« La mesure 'poids' (50) est hors de la plage physiologique valide [1.5, 35.0]… ») reformulé en
+// clair ; si sa forme change, on affiche son texte tel quel plutôt que de le perdre.
+export function nettoyer(detail: string): string {
+  const m = /mesure '([^']+)' \((-?[\d.,]+)\).*?\[(-?[\d.]+),\s*(-?[\d.]+)\]/.exec(detail);
+  if (m) return messageHorsPlage(m[1], Number(m[2].replace(',', '.')), Number(m[3]), Number(m[4]));
   return detail.replace(/^Erreur de mesure:\s*/, '');
 }
 

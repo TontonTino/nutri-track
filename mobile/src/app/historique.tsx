@@ -1,13 +1,14 @@
 // Historique : liste chronologique des dépistages + courbe de suivi de grossesse (hauteur utérine dans le temps).
+// Mise en page aérée : cartes légères, une seule pastille de couleur par dépistage, notes discrètes.
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BoutonPrincipal } from '../components/BoutonPrincipal';
 import { CourbeGrossesse, type PointCourbe } from '../components/CourbeGrossesse';
-import { couleurClassification, couleurs } from '../constants/theme';
+import { couleurs, teintes } from '../constants/theme';
 import { useSynchro } from '../data/SynchroContext';
 import { dateCpn, type EnregistrementHistorique, listerDepistages, suiviGrossesseDe } from '../data/historique';
-import { categorieDe, libelleDe, nomPopulation, resumeMesures } from '../services/presentation';
+import { categorieDe, libelleDe, resumeMesures } from '../services/presentation';
+import { carteDouce } from '../theme/carte';
 import type { Echelle } from '../theme/echelle';
 import { useStyles } from '../theme/useEchelle';
 import type { Population } from '../types/depistage';
@@ -19,27 +20,42 @@ const FILTRES: { valeur: Filtre; libelle: string }[] = [
   { valeur: 'enceinte', libelle: 'Femmes enceintes' },
   { valeur: 'personne_agee', libelle: 'Personnes âgées' },
 ];
+const ACCENT_ATTENTE = '#E08600';
+const NOMS_COURTS: Record<Population, string> = { enfant: 'Enfant', enceinte: 'Femme enceinte', personne_agee: 'Personne âgée' };
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 function Pastilles<T extends string>({ options, valeur, onChange }: { options: { valeur: T; libelle: string }[]; valeur: T | null; onChange: (v: T) => void }) {
   const styles = useStyles(creerStyles);
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pastilles}>
-      {options.map((o) => (
-        <Pressable
-          key={o.valeur}
-          onPress={() => onChange(o.valeur)}
-          accessibilityRole="button"
-          accessibilityState={{ selected: o.valeur === valeur }}
-          style={[styles.pastille, o.valeur === valeur && styles.pastilleActive]}
-        >
-          <Text style={[styles.pastilleTexte, o.valeur === valeur && styles.pastilleTexteActive]}>{o.libelle}</Text>
-        </Pressable>
-      ))}
+      {options.map((o) => {
+        const actif = o.valeur === valeur;
+        return (
+          <Pressable
+            key={o.valeur}
+            onPress={() => onChange(o.valeur)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: actif }}
+            style={[styles.pastille, actif && styles.pastilleActive]}
+          >
+            <Text style={[styles.pastilleTexte, actif && styles.pastilleTexteActive]}>{o.libelle}</Text>
+          </Pressable>
+        );
+      })}
     </ScrollView>
+  );
+}
+
+function LigneNote({ texte, accent }: { texte: string; accent: string }) {
+  const styles = useStyles(creerStyles);
+  return (
+    <View style={styles.noteLigne}>
+      <View style={[styles.notePoint, { backgroundColor: accent }]} />
+      <Text style={styles.noteTexte}>{texte}</Text>
+    </View>
   );
 }
 
@@ -93,21 +109,24 @@ export default function Historique() {
   const affiches = (donnees ?? []).filter((d) => filtre === 'tous' || d.population === filtre);
 
   const entete = (
-    <View>
+    <View style={styles.entete}>
       {nombreEnAttente > 0 ? (
-        <BoutonPrincipal
-          titre={`Synchroniser maintenant (${nombreEnAttente})`}
-          secondaire
-          chargement={enSynchronisation}
-          onPress={() => void forcerSync()}
-          testID="bouton-synchroniser"
-        />
+        <View style={styles.attenteCarte} testID="carte-attente">
+          <View style={[styles.notePoint, { backgroundColor: ACCENT_ATTENTE }]} />
+          <Text style={styles.attenteTexte}>
+            {nombreEnAttente} dépistage{nombreEnAttente > 1 ? 's' : ''} en attente de synchronisation
+          </Text>
+          <Pressable onPress={() => void forcerSync()} disabled={enSynchronisation} accessibilityRole="button" accessibilityLabel="Synchroniser maintenant" testID="bouton-synchroniser">
+            <Text style={styles.attenteAction}>{enSynchronisation ? 'En cours…' : 'Synchroniser'}</Text>
+          </Pressable>
+        </View>
       ) : null}
+
       <Pastilles options={FILTRES} valeur={filtre} onChange={setFiltre} />
 
       {patiente ? (
-        <View style={styles.carte} testID="suivi-grossesse">
-          <Text style={styles.titreSection}>Suivi de grossesse</Text>
+        <View style={styles.carteSuivi} testID="suivi-grossesse">
+          <Text style={styles.titreCarte}>Suivi de grossesse</Text>
           {patientes.length > 1 ? (
             <Pastilles options={patientes.map((p) => ({ valeur: p, libelle: p }))} valeur={patiente} onChange={setPatienteChoisie} />
           ) : (
@@ -117,14 +136,17 @@ export default function Historique() {
             <CourbeGrossesse points={points} />
           ) : (
             <Text style={styles.sousTitre}>
-              Une seule consultation enregistrée : résultat ponctuel, aucune tendance à afficher.
+              Une seule consultation enregistrée : aucune tendance à afficher.
               {points[0] ? ` Hauteur utérine ${points[0].mesuree} cm à ${points[0].attendue} SA.` : ''}
             </Text>
           )}
         </View>
       ) : null}
 
-      <Text style={styles.titreSection}>Dépistages ({affiches.length})</Text>
+      <View style={styles.titreSection}>
+        <Text style={styles.titreSectionTexte}>Dépistages</Text>
+        <Text style={styles.compteur}>{affiches.length}</Text>
+      </View>
     </View>
   );
 
@@ -151,27 +173,32 @@ export default function Historique() {
         )
       }
       renderItem={({ item }) => {
-        const couleur = couleurClassification[categorieDe(item.classification)];
+        const teinte = teintes[categorieDe(item.classification)];
+        const attente = !item.synchronise ? (item.provisoire ? 'En attente de synchronisation · résultat provisoire' : 'En attente de synchronisation') : null;
         return (
           <View style={styles.ligne} testID="ligne-historique">
             <View style={styles.ligneHaut}>
-              <Text style={styles.ligneTitre}>
-                {nomPopulation[item.population]}
-                {item.personne_ref ? ` — ${item.personne_ref}` : ''}
+              <Text style={styles.ligneTitre} numberOfLines={1}>
+                {item.personne_ref ?? NOMS_COURTS[item.population]}
               </Text>
-              <Text style={styles.ligneDate}>{formatDate(item.date_saisie)}</Text>
+              <Text style={styles.ligneDate}>
+                {item.personne_ref ? `${NOMS_COURTS[item.population]}  ·  ` : ''}
+                {formatDate(item.date_saisie)}
+              </Text>
             </View>
             <Text style={styles.ligneMesures}>{resumeMesures(item.population, item.mesures)}</Text>
-            <View style={[styles.etiquette, { backgroundColor: couleur.fond }]}>
-              <Text style={[styles.etiquetteTexte, { color: couleur.texte }]} numberOfLines={2}>
-                {libelleDe(item.population, item.classification)}
-              </Text>
+            <View style={[styles.etiquette, { backgroundColor: teinte.fond }]}>
+              <View style={[styles.etiquettePoint, { backgroundColor: teinte.accent }]} />
+              <Text style={[styles.etiquetteTexte, { color: teinte.texte }]}>{libelleDe(item.population, item.classification)}</Text>
             </View>
-            {item.provisoire ? <Text style={styles.note}>Résultat provisoire : à confirmer par le serveur</Text> : null}
-            {!item.synchronise ? <Text style={styles.attente}>En attente de synchronisation</Text> : null}
-            {item.conflit_ambigu ? <Text style={styles.attente}>Possible doublon : conservé, à vérifier par le centre de santé</Text> : null}
-            {item.orientation_declenchee ? <Text style={styles.orientation}>Orientation vers un centre de santé déclenchée</Text> : null}
-            {item.oedemes_incertains ? <Text style={styles.note}>Œdèmes incertains : à confirmer par le test de pression</Text> : null}
+            {item.orientation_declenchee || attente || item.conflit_ambigu || item.oedemes_incertains ? (
+              <View style={styles.notes}>
+                {item.orientation_declenchee ? <LigneNote texte="Orientation vers un centre de santé" accent={couleurs.erreur} /> : null}
+                {attente ? <LigneNote texte={attente} accent={ACCENT_ATTENTE} /> : null}
+                {item.conflit_ambigu ? <LigneNote texte="Possible doublon : à vérifier par le centre de santé" accent={ACCENT_ATTENTE} /> : null}
+                {item.oedemes_incertains ? <LigneNote texte="Œdèmes incertains : à confirmer" accent={ACCENT_ATTENTE} /> : null}
+              </View>
+            ) : null}
           </View>
         );
       }}
@@ -182,49 +209,41 @@ export default function Historique() {
 const creerStyles = (t: Echelle) =>
   StyleSheet.create({
     cadre: { width: '100%', maxWidth: t.contenuMax, alignSelf: 'center' },
-    liste: { padding: t.espace.l, paddingBottom: t.espace.xl * 1.5, gap: t.espace.m },
-    pastilles: { gap: t.espace.s, paddingBottom: t.espace.m },
+    liste: { padding: t.espace.l, paddingBottom: t.espace.xl * 2, gap: t.espace.l },
+    entete: { gap: t.espace.l },
+    pastilles: { gap: t.espace.s, paddingVertical: t.espace.xs },
     pastille: {
-      borderWidth: t.trait,
-      borderColor: couleurs.bordure,
       borderRadius: t.rayon.l * 2,
       paddingHorizontal: t.espace.l,
       paddingVertical: t.espace.s,
-      minHeight: t.cibleTactile * 0.8,
+      minHeight: t.cibleTactile * 0.75,
       justifyContent: 'center',
-      backgroundColor: couleurs.carte,
+      backgroundColor: '#E9EEEB',
     },
-    pastilleActive: { backgroundColor: couleurs.primaire, borderColor: couleurs.primaire },
-    pastilleTexte: { color: couleurs.texte, fontWeight: '600', fontSize: t.police.corps },
+    pastilleActive: { backgroundColor: couleurs.primaire },
+    pastilleTexte: { color: couleurs.texteSecondaire, fontWeight: '600', fontSize: t.police.corps },
     pastilleTexteActive: { color: '#FFFFFF' },
-    carte: {
-      backgroundColor: couleurs.carte,
-      borderRadius: t.rayon.m,
-      borderWidth: t.trait / 2,
-      borderColor: couleurs.bordure,
-      padding: t.espace.m,
-      marginBottom: t.espace.m,
-      gap: t.espace.s,
-    },
-    titreSection: { fontSize: t.police.sousTitre, fontWeight: '800', color: couleurs.texte, marginBottom: t.espace.xs },
-    sousTitre: { fontSize: t.police.aide, color: couleurs.texteSecondaire },
-    ligne: {
-      backgroundColor: couleurs.carte,
-      borderRadius: t.rayon.m,
-      borderWidth: t.trait / 2,
-      borderColor: couleurs.bordure,
-      padding: t.espace.m,
-      gap: t.espace.xs,
-    },
-    ligneHaut: { flexDirection: 'row', justifyContent: 'space-between', gap: t.espace.s, flexWrap: 'wrap' },
-    ligneTitre: { fontSize: t.police.corps, fontWeight: '700', color: couleurs.texte, flexShrink: 1 },
+    attenteCarte: { ...carteDouce(t), flexDirection: 'row', alignItems: 'center', gap: t.espace.m, paddingVertical: t.espace.m, paddingHorizontal: t.espace.l },
+    attenteTexte: { flex: 1, fontSize: t.police.aide, color: couleurs.texteSecondaire },
+    attenteAction: { fontSize: t.police.corps, fontWeight: '700', color: couleurs.primaire, paddingVertical: t.espace.xs },
+    carteSuivi: { ...carteDouce(t), padding: t.espace.xl, gap: t.espace.m },
+    titreCarte: { fontSize: t.police.sousTitre, fontWeight: '800', color: couleurs.texte },
+    sousTitre: { fontSize: t.police.aide, color: couleurs.texteSecondaire, lineHeight: t.police.aide * 1.4 },
+    titreSection: { flexDirection: 'row', alignItems: 'baseline', gap: t.espace.s, marginTop: t.espace.s },
+    titreSectionTexte: { fontSize: t.police.titre, fontWeight: '800', color: couleurs.texte },
+    compteur: { fontSize: t.police.corps, fontWeight: '700', color: couleurs.texteSecondaire },
+    ligne: { ...carteDouce(t), padding: t.espace.xl, gap: t.espace.m },
+    ligneHaut: { gap: t.espace.xs },
+    ligneTitre: { fontSize: t.police.sousTitre, fontWeight: '800', color: couleurs.texte },
     ligneDate: { fontSize: t.police.aide, color: couleurs.texteSecondaire },
-    ligneMesures: { fontSize: t.police.aide, color: couleurs.texteSecondaire },
-    etiquette: { alignSelf: 'flex-start', borderRadius: t.rayon.s, paddingHorizontal: t.espace.m, paddingVertical: t.espace.xs, maxWidth: '100%' },
-    etiquetteTexte: { fontSize: t.police.aide, fontWeight: '700' },
-    orientation: { fontSize: t.police.aide, fontWeight: '700', color: couleurs.erreur },
-    note: { fontSize: t.police.aide, color: couleurs.texteSecondaire, fontStyle: 'italic' },
-    attente: { fontSize: t.police.aide, color: '#92400E', fontWeight: '600' },
+    ligneMesures: { fontSize: t.police.corps, color: couleurs.texteSecondaire },
+    etiquette: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: t.espace.s, borderRadius: t.rayon.m, paddingHorizontal: t.espace.m, paddingVertical: t.espace.s, maxWidth: '100%' },
+    etiquettePoint: { width: t.e(9), height: t.e(9), borderRadius: t.e(5) },
+    etiquetteTexte: { flexShrink: 1, fontSize: t.police.corps, fontWeight: '700' },
+    notes: { gap: t.espace.s, paddingTop: t.espace.xs },
+    noteLigne: { flexDirection: 'row', alignItems: 'flex-start', gap: t.espace.m },
+    notePoint: { width: t.e(8), height: t.e(8), borderRadius: t.e(4), marginTop: t.espace.s },
+    noteTexte: { flex: 1, fontSize: t.police.aide, color: couleurs.texteSecondaire, lineHeight: t.police.aide * 1.4 },
     vide: { padding: t.espace.xl, alignItems: 'center' },
     videTexte: { fontSize: t.police.corps, color: couleurs.texteSecondaire, textAlign: 'center' },
   });

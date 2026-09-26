@@ -1,20 +1,30 @@
 import type { Categorie } from '../services/presentation';
 
 export const couleurs = {
-  fond: '#F5F7F6',
+  fond: '#F6F8F7',
   carte: '#FFFFFF',
-  texte: '#1B2A24',
-  texteSecondaire: '#5B6B64',
+  texte: '#1F2A26',
+  texteSecondaire: '#66746E',
   primaire: '#1F7A4D',
-  bordure: '#C9D3CE',
+  bordure: '#D9E1DD',
+  ligne: '#E8EDEA',
   erreur: '#C62828',
   erreurFond: '#FDECEA',
+  ombre: '#0E2A1D',
 };
 
-// Couleur de classification. Le texte accompagne toujours la couleur (accessibilité).
-export const couleurClassification: Record<Categorie, { fond: string; texte: string }> = {
-  normal: { fond: '#2E7D32', texte: '#FFFFFF' },
-  modere: { fond: '#EF6C00', texte: '#FFFFFF' },
-  severe: { fond: '#C62828', texte: '#FFFFFF' },
-  inconnu: { fond: '#546E7A', texte: '#FFFFFF' },
+// Teintes de classification : un fond très doux, un accent (pastille, filet) et un texte foncé. La couleur seule ne porte
+// jamais l'information : le libellé et le symbole l'accompagnent toujours (accessibilité).
+export interface Teinte {
+  fond: string;
+  accent: string;
+  texte: string;
+  symbole: string;
+}
+
+export const teintes: Record<Categorie, Teinte> = {
+  normal: { fond: '#EAF6EE', accent: '#2E7D32', texte: '#17472A', symbole: '✓' },
+  modere: { fond: '#FFF3E2', accent: '#E08600', texte: '#6B3A00', symbole: '!' },
+  severe: { fond: '#FDEDEC', accent: '#C62828', texte: '#7A1B1B', symbole: '!' },
+  inconnu: { fond: '#EEF1F3', accent: '#607D8B', texte: '#2F3B42', symbole: '?' },
 };

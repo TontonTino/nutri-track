@@ -166,10 +166,12 @@ export default function SaisieEnfant() {
                 : 'Mesure au brassard, en millimètres. Exemple : 112'
           }
         />
-        <BoutonPrincipal titre="Photographier le brassard (contrôle)" secondaire onPress={ouvrirLectureBrassard} testID="bouton-brassard" />
-        {VISION_CALIBRATION_ACTIVE ? (
-          <BoutonPrincipal titre="Estimer par calibration (prototype)" secondaire onPress={lancerCapture} testID="bouton-camera" />
-        ) : null}
+        <View style={styles.blocCamera}>
+          <BoutonPrincipal titre="Photographier le brassard (contrôle)" secondaire onPress={ouvrirLectureBrassard} testID="bouton-brassard" />
+          {VISION_CALIBRATION_ACTIVE ? (
+            <BoutonPrincipal titre="Estimer par calibration (prototype)" secondaire onPress={lancerCapture} testID="bouton-camera" />
+          ) : null}
+        </View>
         <ChampNumerique testID="champ-poids" libelle="Poids" unite="kg" valeur={poids} onChange={modifier('poids', setPoids)} erreur={erreurs.poids} />
         <ChampNumerique testID="champ-taille" libelle="Taille" unite="cm" valeur={taille} onChange={modifier('taille', setTaille)} erreur={erreurs.taille} />
         <ChoixUnique
@@ -195,4 +197,5 @@ const creerStyles = (t: Echelle) =>
     flex: { flex: 1 },
     defilement: { flexGrow: 1, alignItems: 'center' },
     conteneur: { width: '100%', maxWidth: t.contenuMax, padding: t.espace.l, paddingBottom: t.espace.xl * 1.5 },
+    blocCamera: { marginTop: t.espace.xs, marginBottom: t.espace.xl, gap: t.espace.xs },
   });
