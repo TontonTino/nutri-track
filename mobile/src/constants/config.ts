@@ -16,3 +16,8 @@ export const DELAI_RESEAU_MS = 8000;
 // Nouvelle tentative de synchronisation tant que des dépistages restent en attente (serveur injoignable
 // alors que le réseau est présent : le module de synchronisation ne détecte alors aucun retour de réseau).
 export const INTERVALLE_RELANCE_SYNC_MS = 60000;
+
+// Estimation du PB par photo et calibration (module de Lionel, prototype) : désactivée par défaut. Elle suppose une largeur
+// de bras constante et n'est pas assez fiable pour le terrain ; la lecture assistée du brassard la remplace.
+// EXPO_PUBLIC_VISION_CALIBRATION=true la réactive pour la démonstration.
+export const VISION_CALIBRATION_ACTIVE = process.env.EXPO_PUBLIC_VISION_CALIBRATION === 'true';

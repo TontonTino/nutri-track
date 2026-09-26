@@ -69,7 +69,23 @@ Les informations propres à l'application (code de la personne, œdèmes incerta
 4. **Message et recommandation** du serveur ne sont pas conservés : ils sont perdus après synchronisation d'une entrée hors ligne.
 5. **Classifieur local** différent du moteur d'Alya : personne âgée « score ≤ 6 » contre « ≤ 7 » chez Alya ; grossesse : orientation `false` contre `true`, et `à_confirmer_en_ligne` hors 20-34 SA alors que le serveur classe toutes les semaines.
 
-## Vision par ordinateur (intégration de `vision/`)
+## Caméra : lecture assistée du brassard (par défaut)
+
+Le formulaire Enfant propose « Photographier le brassard (contrôle) » (`src/app/brassard.tsx`). Principe : le **brassard PB** est l'instrument de référence ; la caméra en photographie la bande, **l'agent tape la valeur lue**, et l'app contrôle que la couleur visible sur la photo (rouge < 115 mm, jaune 115-124 mm, vert ≥ 125 mm) correspond à cette valeur, pour repérer une erreur de lecture ou de frappe. Trois étapes, sans objet de calibration :
+
+1. cadrer la fenêtre de lecture du brassard dans le rectangle et prendre la photo ;
+2. taper la valeur lue (l'app affiche la couleur vue et la zone de la valeur, et alerte en cas d'incohérence, sans jamais bloquer) ;
+3. « Utiliser cette valeur » : le PB remplit le formulaire.
+
+Garanties : aucune estimation de l'IA n'entre dans le classement (seule la valeur lue par l'agent) ; le contrôle est indicatif ; la photo est analysée sur le téléphone puis **effacée** (reprise, validation ou sortie de l'écran). La source reste `pb_source: "manuel"` ; la traçabilité du contrôle part dans `mesures` : `pb_controle_photo` (`coherent` / `incoherent` / `non_detecte`) et `pb_couleur_detectee`.
+
+Pourquoi ce choix : l'estimation par calibration du module de Lionel (ci-dessous) suppose une **largeur de bras constante** (60 % de l'écran) : la carte convertit cette constante en cm, mais le bras n'est jamais mesuré. Une photo de profil ne donne d'ailleurs pas un PB fiable sans capteur de profondeur. La détection de couleur est une aide : elle ne détecte rien plutôt que de deviner quand la bande est absente ou mêlée, et peut se tromper sous une lumière colorée.
+
+## Estimation par calibration (module de Lionel, désactivée par défaut)
+
+`EXPO_PUBLIC_VISION_CALIBRATION=true` réaffiche le bouton « Estimer par calibration (prototype) ».
+
+### Intégration de `vision/`
 
 Le module de Lionel (`vision/`, importé **sans modification**) est hébergé dans l'app : le formulaire Enfant propose « Mesurer avec la caméra », qui ouvre ses écrans Capture → Calibration → Confirmation. Le PB **confirmé ou corrigé par l'agent** revient dans le champ PB (jamais une estimation brute), puis le flux normal enregistre **un seul** dépistage (en ligne ou hors ligne).
 

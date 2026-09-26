@@ -25,6 +25,9 @@ export interface MesureEnfant {
   pb_score_confiance?: number | null;
   pb_statut_validation?: 'confirmee' | 'corrigee';
   pb_methode_mesure?: string;
+  // Lecture du brassard avec contrôle de la couleur photographiée (la valeur reste celle lue par l'agent).
+  pb_controle_photo?: 'coherent' | 'incoherent' | 'non_detecte';
+  pb_couleur_detectee?: 'rouge' | 'jaune' | 'vert' | null;
 }
 
 // Unités : hauteur_uterine en cm, pb en mm.

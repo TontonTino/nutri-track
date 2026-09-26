@@ -28,6 +28,7 @@ export default function RootLayout() {
           <Stack.Screen name="personne-agee" options={{ title: 'Dépistage — Personne âgée' }} />
           <Stack.Screen name="resultat" options={{ title: 'Résultat', headerBackVisible: false, headerLeft: () => null, gestureEnabled: false }} />
           <Stack.Screen name="historique" options={{ title: 'Historique' }} />
+          <Stack.Screen name="brassard" options={{ headerShown: false }} />
           <Stack.Screen name="vision/capture" options={{ headerShown: false }} />
           <Stack.Screen name="vision/calibration" options={{ headerShown: false }} />
           <Stack.Screen name="vision/confirmation" options={{ headerShown: false, gestureEnabled: false }} />

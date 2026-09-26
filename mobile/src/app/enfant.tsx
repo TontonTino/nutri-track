@@ -9,7 +9,8 @@ import { ChampNumerique } from '../components/ChampNumerique';
 import { ChoixUnique } from '../components/ChoixUnique';
 import { effectuerDepistage, paramsResultat } from '../services/depistage';
 import { useEnvoiUnique } from '../services/useEnvoiUnique';
-import { AGENT_ID } from '../constants/config';
+import { AGENT_ID, VISION_CALIBRATION_ACTIVE } from '../constants/config';
+import { champsBrassard, consommerLecture, type LectureBrassard, lectureActive } from '../brassard/lecture';
 import { champsVision, MODE_SAISIE_VISION, PB_SOURCE_VISION, visionActive } from '../vision/mesureAssistee';
 import { consommerResultat, definirParametres, reinitialiserSession, type ResultatVision } from '../vision/session';
 import { type Erreurs, erreurPourFormulaire, versNombre } from '../services/formulaire';
@@ -35,21 +36,37 @@ export default function SaisieEnfant() {
   const [taille, setTaille] = useState('');
   const [oedemes, setOedemes] = useState<Oedemes | null>(null);
   const [vision, setVision] = useState<ResultatVision | null>(null);
+  const [lecture, setLecture] = useState<LectureBrassard | null>(null);
   const [erreurs, setErreurs] = useState<Erreurs>({});
   const [erreurGenerale, setErreurGenerale] = useState<string | null>(null);
   const { chargement: envoiEnCours, lancer } = useEnvoiUnique();
 
-  // Retour de la capture assistée : le PB confirmé ou corrigé par l'agent remplit le champ (jamais une estimation brute).
+  // Retour de la lecture du brassard ou de la capture assistée : le PB validé par l'agent remplit le champ
+  // (jamais une estimation brute de l'IA).
   useFocusEffect(
     useCallback(() => {
+      const lue = consommerLecture();
+      if (lue) {
+        setLecture(lue);
+        setVision(null);
+        setPb(String(lue.valeur_mm));
+        setErreurs((e) => ({ ...e, pb: undefined }));
+        setErreurGenerale(null);
+        return;
+      }
       const resultat = consommerResultat();
       if (!resultat) return;
       setVision(resultat);
+      setLecture(null);
       setPb(String(resultat.valeur_mm));
       setErreurs((e) => ({ ...e, pb: undefined }));
       setErreurGenerale(null);
     }, []),
   );
+
+  function ouvrirLectureBrassard() {
+    router.push('/brassard');
+  }
 
   function lancerCapture() {
     reinitialiserSession();
@@ -58,6 +75,7 @@ export default function SaisieEnfant() {
   }
 
   const visionEnCours = visionActive(pb, vision);
+  const lectureEnCours = lectureActive(pb, lecture);
 
   function modifier(champ: string, maj: (v: string) => void) {
     return (texte: string) => {
@@ -94,6 +112,7 @@ export default function SaisieEnfant() {
       oedemes_bilateraux: oedemesVersApi(oedemes as Oedemes),
       oedemes_source: 'clinique',
       ...(assiste ? champsVision(assiste) : {}),
+      ...(lectureActive(pb, lecture) ? champsBrassard(lecture as LectureBrassard) : {}),
     };
     const options = {
       personneRef: code,
@@ -136,12 +155,21 @@ export default function SaisieEnfant() {
           onChange={modifier('pb', setPb)}
           erreur={erreurs.pb}
           aide={
-            visionEnCours
-              ? `Mesuré avec la caméra et ${visionEnCours.statut === 'corrigee' ? 'corrigé' : 'confirmé'} par vous. Modifiez le champ pour saisir à la main.`
-              : 'Mesure au brassard, en millimètres. Exemple : 112'
+            lectureEnCours
+              ? lectureEnCours.controle === 'coherent'
+                ? 'Lu sur le brassard. La couleur photographiée correspond à la valeur.'
+                : lectureEnCours.controle === 'incoherent'
+                  ? 'Lu sur le brassard. Attention : la couleur photographiée ne correspondait pas à la valeur.'
+                  : 'Lu sur le brassard.'
+              : visionEnCours
+                ? `Mesuré avec la caméra et ${visionEnCours.statut === 'corrigee' ? 'corrigé' : 'confirmé'} par vous. Modifiez le champ pour saisir à la main.`
+                : 'Mesure au brassard, en millimètres. Exemple : 112'
           }
         />
-        <BoutonPrincipal titre="Mesurer avec la caméra (facultatif)" secondaire onPress={lancerCapture} testID="bouton-camera" />
+        <BoutonPrincipal titre="Photographier le brassard (contrôle)" secondaire onPress={ouvrirLectureBrassard} testID="bouton-brassard" />
+        {VISION_CALIBRATION_ACTIVE ? (
+          <BoutonPrincipal titre="Estimer par calibration (prototype)" secondaire onPress={lancerCapture} testID="bouton-camera" />
+        ) : null}
         <ChampNumerique testID="champ-poids" libelle="Poids" unite="kg" valeur={poids} onChange={modifier('poids', setPoids)} erreur={erreurs.poids} />
         <ChampNumerique testID="champ-taille" libelle="Taille" unite="cm" valeur={taille} onChange={modifier('taille', setTaille)} erreur={erreurs.taille} />
         <ChoixUnique
