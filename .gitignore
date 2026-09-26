@@ -1,7 +1,34 @@
+# Python / FastAPI (backend/)
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+.venv/
+venv/
+*.env
+.env
+
+# React Native / Node (mobile/)
+node_modules/
+.expo/
+.expo-shared/
+npm-debug.*
+yarn-error.*
+*.log
+
+# iOS / Android build artifacts
+ios/Pods/
+ios/build/
+android/.gradle/
+android/app/build/
+*.keystore
+!debug.keystore
+
+# Base locale / données de démo
+*.sqlite
+*.db
+
+# Système
 .DS_Store
 *.swp
 *.swo
