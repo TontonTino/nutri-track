@@ -43,7 +43,7 @@ Erreur hors plage : HTTP 422 `{ "detail": "Erreur de mesure: La mesure 'pb' (900
 
 ## Décisions et points à valider avec l'équipe
 
-1. **Œdèmes « Incertain »** : l'ASC choisit Oui / Non / Incertain, mais l'API n'accepte qu'un booléen. `Incertain` est envoyé comme `true` (orientation prudente) et un avertissement demande de confirmer par le test de pression (`services/mappings.ts`). À trancher avec Alya.
+1. **Œdèmes « Incertain » (décidé)** : l'API n'accepte qu'un booléen, et envoyer un doute comme « oui » classait sévère un enfant peut-être sain. « Incertain » n'est donc plus une réponse finale : il affiche le guide du test de pression (`components/AideTestPression.tsx`, protocole PCIMA : pouce 3 secondes sur le dessus des deux pieds, un creux sur un seul pied ne compte pas) et **bloque la validation** tant que l'agent n'a pas répondu Oui ou Non. Aucun « Incertain » n'est jamais envoyé au serveur (`services/mappings.ts`). Alya n'a rien à modifier.
 2. **Écart de hauteur utérine** (`ecart_suivi_rapproche`) : l'API joint une recommandation de « transfert immédiat », contraire à la règle du cahier des charges (suivi rapproché, jamais un diagnostic). L'écran affiche un texte de suivi rapproché à la place (`actionAffichee`). Demander à Alya d'ajuster la recommandation côté serveur.
 3. **`date_cpn`** : envoyée par l'app mais ignorée par l'API (heure serveur). Demander à Alya de la prendre en compte.
 4. **Classification personne âgée** : le moteur ignore `perimetre_mollet` et `perte_poids_recente` (seuls `score_mna_sf` et `pb_optionnel` comptent). Le cas de référence du cahier des charges (§5.5) n'est donc pas couvert.

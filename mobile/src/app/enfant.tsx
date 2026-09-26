@@ -1,8 +1,10 @@
 // Saisie manuelle Enfant : MesureEnfant(pb, pb_source, poids, taille, oedemes_bilateraux, oedemes_source).
-// L'ASC choisit Oui / Non / Incertain ; l'API attend un booléen (voir services/mappings.ts).
+// Œdèmes : Oui / Non / Incertain, mais « Incertain » doit être tranché par le test de pression avant la validation
+// (voir services/mappings.ts et components/AideTestPression.tsx) : l'API n'accepte qu'un booléen.
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { AideTestPression } from '../components/AideTestPression';
 import { BanniereErreur } from '../components/BanniereErreur';
 import { BoutonPrincipal } from '../components/BoutonPrincipal';
 import { ChampNumerique } from '../components/ChampNumerique';
@@ -14,7 +16,7 @@ import { champsBrassard, consommerLecture, type LectureBrassard, lectureActive }
 import { champsVision, MODE_SAISIE_VISION, PB_SOURCE_VISION, visionActive } from '../vision/mesureAssistee';
 import { consommerResultat, definirParametres, reinitialiserSession, type ResultatVision } from '../vision/session';
 import { type Erreurs, erreurPourFormulaire, versNombre } from '../services/formulaire';
-import { oedemesVersApi } from '../services/mappings';
+import { erreurOedemes, oedemesVersApi } from '../services/mappings';
 import type { Echelle } from '../theme/echelle';
 import { useStyles } from '../theme/useEchelle';
 import type { MesureEnfant, Oedemes } from '../types/depistage';
@@ -97,7 +99,8 @@ export default function SaisieEnfant() {
     if (pbN === null) locales.pb = 'Saisissez le périmètre brachial (nombre).';
     if (poidsN === null) locales.poids = 'Saisissez le poids (nombre).';
     if (tailleN === null) locales.taille = 'Saisissez la taille (nombre).';
-    if (oedemes === null) locales.oedemes_bilateraux = 'Choisissez Oui, Non ou Incertain.';
+    const erreurOed = erreurOedemes(oedemes);
+    if (erreurOed) locales.oedemes_bilateraux = erreurOed;
     if (Object.keys(locales).length > 0) {
       setErreurs(locales);
       return;
@@ -116,7 +119,6 @@ export default function SaisieEnfant() {
     };
     const options = {
       personneRef: code,
-      oedemesIncertains: oedemes === 'Incertain',
       modeSaisie: assiste ? MODE_SAISIE_VISION : 'manuel',
     };
 
@@ -184,6 +186,15 @@ export default function SaisieEnfant() {
           }}
           erreur={erreurs.oedemes_bilateraux}
         />
+        {oedemes === 'Incertain' ? (
+          <AideTestPression
+            onResultat={(reponse) => {
+              setOedemes(reponse);
+              setErreurs((e) => ({ ...e, oedemes_bilateraux: undefined }));
+              setErreurGenerale(null);
+            }}
+          />
+        ) : null}
 
         <BoutonPrincipal testID="bouton-valider" titre="Valider" onPress={valider} chargement={envoiEnCours} />
         </View>
