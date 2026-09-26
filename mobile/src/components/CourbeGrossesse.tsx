@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Polyline, Text as SvgText } from 'react-native-svg';
 import { couleurs } from '../constants/theme';
+import { etiquettesVisibles, fractionsTemporelles } from '../services/courbe';
 import { borner, type Echelle } from '../theme/echelle';
 import { useEchelle, useStyles } from '../theme/useEchelle';
 
@@ -37,7 +38,10 @@ export function CourbeGrossesse({ points }: { points: PointCourbe[] }) {
   const min = Math.floor(Math.min(...valeurs) - 2);
   const max = Math.ceil(Math.max(...valeurs) + 2);
 
-  const x = (i: number) => marge.gauche + (points.length === 1 ? largeurUtile / 2 : (i / (points.length - 1)) * largeurUtile);
+  // Abscisses proportionnelles au temps réel écoulé entre les consultations (pas un espacement régulier).
+  const fractions = fractionsTemporelles(points.map((p) => p.date));
+  const x = (i: number) => marge.gauche + fractions[i] * largeurUtile;
+  const dateVisible = etiquettesVisibles(points.map((_, i) => x(i)), t.e(46));
   const y = (v: number) => marge.haut + (1 - (v - min) / (max - min)) * hauteurUtile;
   const ligne = (cle: 'mesuree' | 'attendue') => points.map((p, i) => `${x(i)},${y(p[cle])}`).join(' ');
 
@@ -58,11 +62,13 @@ export function CourbeGrossesse({ points }: { points: PointCourbe[] }) {
           {points.map((p, i) => (
             <Circle key={`${p.date}-${i}`} cx={x(i)} cy={y(p.mesuree)} r={t.e(5)} fill={COULEUR_MESURE} />
           ))}
-          {points.map((p, i) => (
-            <SvgText key={`d${p.date}-${i}`} x={x(i)} y={hauteurTotale - t.espace.m} fontSize={t.police.petit} fill={couleurs.texteSecondaire} textAnchor="middle">
-              {formatCourt(p.date)}
-            </SvgText>
-          ))}
+          {points.map((p, i) =>
+            dateVisible[i] ? (
+              <SvgText key={`d${p.date}-${i}`} x={x(i)} y={hauteurTotale - t.espace.m} fontSize={t.police.petit} fill={couleurs.texteSecondaire} textAnchor="middle">
+                {formatCourt(p.date)}
+              </SvgText>
+            ) : null,
+          )}
         </Svg>
       ) : null}
       <View style={styles.legende}>

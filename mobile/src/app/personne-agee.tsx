@@ -9,14 +9,15 @@ import { ChampNumerique } from '../components/ChampNumerique';
 import { ChoixUnique } from '../components/ChoixUnique';
 import { couleurs } from '../constants/theme';
 import { effectuerDepistage, paramsResultat } from '../services/depistage';
+import { useEnvoiUnique } from '../services/useEnvoiUnique';
 import { type Erreurs, erreurPourFormulaire, versEntier, versNombre } from '../services/formulaire';
 import { calculerScoreMna, type IdQuestionMna, pertePoidsDepuisReponseB, QUESTIONS_MNA } from '../services/mna';
 import type { Echelle } from '../theme/echelle';
 import { useStyles } from '../theme/useEchelle';
 import type { MesurePersonneAgee } from '../types/depistage';
 
-type Mode = 'Questionnaire MNA-SF' | 'Saisir le score';
-const MODES: readonly Mode[] = ['Questionnaire MNA-SF', 'Saisir le score'];
+type Mode = 'Questionnaire' | 'Score direct';
+const MODES: readonly Mode[] = ['Questionnaire', 'Score direct'];
 type PertePoidsChoix = 'Oui' | 'Non' | 'Ne sait pas';
 const OPTIONS_PERTE: readonly PertePoidsChoix[] = ['Oui', 'Non', 'Ne sait pas'];
 
@@ -29,7 +30,7 @@ const LIBELLES_CHAMPS: Record<string, string> = {
 export default function SaisiePersonneAgee() {
   const styles = useStyles(creerStyles);
   const [code, setCode] = useState('');
-  const [mode, setMode] = useState<Mode>('Questionnaire MNA-SF');
+  const [mode, setMode] = useState<Mode>('Questionnaire');
   const [choix, setChoix] = useState<Partial<Record<IdQuestionMna, string>>>({});
   const [mollet, setMollet] = useState('');
   const [pbOpt, setPbOpt] = useState('');
@@ -37,9 +38,9 @@ export default function SaisiePersonneAgee() {
   const [perte, setPerte] = useState<PertePoidsChoix | null>(null);
   const [erreurs, setErreurs] = useState<Erreurs>({});
   const [erreurGenerale, setErreurGenerale] = useState<string | null>(null);
-  const [envoiEnCours, setEnvoiEnCours] = useState(false);
+  const { chargement: envoiEnCours, lancer } = useEnvoiUnique();
 
-  const questionnaire = mode === 'Questionnaire MNA-SF';
+  const questionnaire = mode === 'Questionnaire';
   const pointsParQuestion = Object.fromEntries(
     QUESTIONS_MNA.flatMap((q) => {
       const o = q.options.find((opt) => opt.libelle === choix[q.id]);
@@ -93,18 +94,17 @@ export default function SaisiePersonneAgee() {
     };
     const options = { personneRef: code };
 
-    setEnvoiEnCours(true);
-    try {
-      const resultat = await effectuerDepistage('personne_agee', mesure, options);
-      setErreurs({});
-      router.push({ pathname: '/resultat', params: paramsResultat('personne_agee', resultat, options) });
-    } catch (e) {
-      const { erreurs: nouvelles, general } = erreurPourFormulaire(e, LIBELLES_CHAMPS);
-      setErreurs(nouvelles);
-      setErreurGenerale(general);
-    } finally {
-      setEnvoiEnCours(false);
-    }
+    await lancer(async () => {
+      try {
+        const resultat = await effectuerDepistage('personne_agee', mesure, options);
+        setErreurs({});
+        router.replace({ pathname: '/resultat', params: paramsResultat('personne_agee', resultat, options) });
+      } catch (e) {
+        const { erreurs: nouvelles, general } = erreurPourFormulaire(e, LIBELLES_CHAMPS);
+        setErreurs(nouvelles);
+        setErreurGenerale(general);
+      }
+    });
   }
 
   return (

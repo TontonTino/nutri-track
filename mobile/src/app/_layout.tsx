@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View } from 'react-native';
 import { BadgeSynchronisation } from '../components/BadgeSynchronisation';
+import { BandeauDemo } from '../components/BandeauDemo';
 import { couleurs } from '../constants/theme';
 import { FournisseurSynchro } from '../data/SynchroContext';
 import { useEchelle } from '../theme/useEchelle';
@@ -29,6 +30,7 @@ export default function RootLayout() {
           <Stack.Screen name="historique" options={{ title: 'Historique' }} />
         </Stack>
         <BadgeSynchronisation />
+        <BandeauDemo />
       </View>
     </FournisseurSynchro>
   );

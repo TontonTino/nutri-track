@@ -25,6 +25,7 @@ export function ChoixUnique<T extends string>({ libelle, options, valeur, onChan
               key={option}
               onPress={() => onChange(option)}
               accessibilityRole="button"
+              accessibilityLabel={option}
               accessibilityState={{ selected: actif }}
               style={[styles.option, vertical && styles.optionVerticale, actif && styles.optionActive, erreur && !actif ? styles.optionErreur : null]}
             >

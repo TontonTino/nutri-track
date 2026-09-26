@@ -1,6 +1,8 @@
-// Interrupteur mock / vrai backend : mettre USE_MOCK à false quand l'API d'Alya est publiée,
-// ou définir EXPO_PUBLIC_USE_MOCK=false et EXPO_PUBLIC_API_URL dans l'environnement.
-export const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK !== 'false';
+// Interrupteur mock / vrai backend : EXPO_PUBLIC_USE_MOCK=false et EXPO_PUBLIC_API_URL pour utiliser l'API d'Alya.
+// Par défaut, le mock n'est actif qu'en développement : une version installée sur le terrain ne doit jamais afficher de
+// résultats simulés sans qu'on l'ait demandé. Quand il est actif, un bandeau « mode démo » est toujours visible.
+const enDeveloppement = typeof __DEV__ !== 'undefined' && __DEV__;
+export const USE_MOCK = (process.env.EXPO_PUBLIC_USE_MOCK ?? (enDeveloppement ? 'true' : 'false')) !== 'false';
 
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
 

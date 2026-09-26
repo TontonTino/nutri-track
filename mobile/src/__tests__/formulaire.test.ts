@@ -29,6 +29,14 @@ describe('dateValide', () => {
     expect(dateValide('26/09/2026', ref)).toBe(false);
     expect(dateValide('2026-02-30', ref)).toBe(false);
   });
+  it("accepte la date du jour quel que soit le fuseau (régression : comparaison à minuit UTC)", () => {
+    // Il est 00h30 le 27 septembre à l'heure locale : la date du jour locale est le 27, même si l'heure UTC est encore le 26.
+    const tot = new Date(2026, 8, 27, 0, 30);
+    expect(dateValide('2026-09-27', tot)).toBe(true);
+    expect(dateValide('2026-09-28', tot)).toBe(false);
+    // Fin de journée locale : la date du jour reste valide.
+    expect(dateValide('2026-09-27', new Date(2026, 8, 27, 23, 59))).toBe(true);
+  });
   it('dateDuJour formate AAAA-MM-JJ', () => {
     expect(dateDuJour(new Date(2026, 8, 5))).toBe('2026-09-05');
   });

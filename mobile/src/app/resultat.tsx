@@ -1,6 +1,7 @@
 // Écran de résultat générique : identique pour les 3 populations, seuls les paramètres changent.
 import { router, useLocalSearchParams } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect } from 'react';
+import { BackHandler, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BoutonPrincipal } from '../components/BoutonPrincipal';
 import { couleurClassification, couleurs } from '../constants/theme';
 import { actionAffichee, categorieDe, libelleDe, nomPopulation } from '../services/presentation';
@@ -12,6 +13,17 @@ const POPULATIONS: Population[] = ['enfant', 'enceinte', 'personne_agee'];
 
 export default function Resultat() {
   const styles = useStyles(creerStyles);
+
+  // Le bouton Retour d'Android ramène à l'accueil : le formulaire déjà envoyé n'est plus accessible, ce qui évite un
+  // double envoi du même dépistage.
+  useEffect(() => {
+    const abonnement = BackHandler.addEventListener('hardwareBackPress', () => {
+      router.replace('/');
+      return true;
+    });
+    return () => abonnement.remove();
+  }, []);
+
   const params = useLocalSearchParams<{
     population?: string;
     classification?: string;

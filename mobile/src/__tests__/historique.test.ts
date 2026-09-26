@@ -98,6 +98,12 @@ describe('versEnregistrement', () => {
     const e = versEnregistrement(ligne({ population: 'enceinte', mesures: JSON.stringify({ personne_id: 'P-001' }) }));
     expect(e.personne_ref).toBe('P-001');
   });
+  it("une ligne aux mesures illisibles n'empêche pas d'afficher le reste de l'historique", () => {
+    const e = versEnregistrement(ligne({ mesures: '{pas du json' }));
+    expect(e.mesures).toEqual({});
+    expect(e.id).toBe('L1');
+    expect(versEnregistrement(ligne({ mesures: '[1,2]' })).mesures).toEqual({});
+  });
   it('signale un doublon possible et tolère une classification absente', () => {
     const e = versEnregistrement(ligne({ conflit_ambigu: 1, classification_locale: null }));
     expect(e.conflit_ambigu).toBe(true);

@@ -8,6 +8,7 @@ import { BanniereErreur } from '../components/BanniereErreur';
 import { BoutonPrincipal } from '../components/BoutonPrincipal';
 import { ChampNumerique } from '../components/ChampNumerique';
 import { effectuerDepistage, paramsResultat } from '../services/depistage';
+import { useEnvoiUnique } from '../services/useEnvoiUnique';
 import { dateDuJour, dateValide, type Erreurs, erreurPourFormulaire, versEntier, versNombre } from '../services/formulaire';
 import type { Echelle } from '../theme/echelle';
 import { useStyles } from '../theme/useEchelle';
@@ -30,7 +31,7 @@ export default function SaisieFemmeEnceinte() {
   const [pb, setPb] = useState('');
   const [erreurs, setErreurs] = useState<Erreurs>({});
   const [erreurGenerale, setErreurGenerale] = useState<string | null>(null);
-  const [envoiEnCours, setEnvoiEnCours] = useState(false);
+  const { chargement: envoiEnCours, lancer } = useEnvoiUnique();
 
   const saNombre = versEntier(sa);
   const horsFenetre = saNombre !== null && (saNombre < 20 || saNombre > 34);
@@ -72,18 +73,17 @@ export default function SaisieFemmeEnceinte() {
     };
     const options = { personneRef: patiente };
 
-    setEnvoiEnCours(true);
-    try {
-      const resultat = await effectuerDepistage('enceinte', mesure, options);
-      setErreurs({});
-      router.push({ pathname: '/resultat', params: paramsResultat('enceinte', resultat, options) });
-    } catch (e) {
-      const { erreurs: nouvelles, general } = erreurPourFormulaire(e, LIBELLES_CHAMPS);
-      setErreurs(nouvelles);
-      setErreurGenerale(general);
-    } finally {
-      setEnvoiEnCours(false);
-    }
+    await lancer(async () => {
+      try {
+        const resultat = await effectuerDepistage('enceinte', mesure, options);
+        setErreurs({});
+        router.replace({ pathname: '/resultat', params: paramsResultat('enceinte', resultat, options) });
+      } catch (e) {
+        const { erreurs: nouvelles, general } = erreurPourFormulaire(e, LIBELLES_CHAMPS);
+        setErreurs(nouvelles);
+        setErreurGenerale(general);
+      }
+    });
   }
 
   return (

@@ -8,6 +8,7 @@ import { BoutonPrincipal } from '../components/BoutonPrincipal';
 import { ChampNumerique } from '../components/ChampNumerique';
 import { ChoixUnique } from '../components/ChoixUnique';
 import { effectuerDepistage, paramsResultat } from '../services/depistage';
+import { useEnvoiUnique } from '../services/useEnvoiUnique';
 import { type Erreurs, erreurPourFormulaire, versNombre } from '../services/formulaire';
 import { oedemesVersApi } from '../services/mappings';
 import type { Echelle } from '../theme/echelle';
@@ -32,7 +33,7 @@ export default function SaisieEnfant() {
   const [oedemes, setOedemes] = useState<Oedemes | null>(null);
   const [erreurs, setErreurs] = useState<Erreurs>({});
   const [erreurGenerale, setErreurGenerale] = useState<string | null>(null);
-  const [envoiEnCours, setEnvoiEnCours] = useState(false);
+  const { chargement: envoiEnCours, lancer } = useEnvoiUnique();
 
   function modifier(champ: string, maj: (v: string) => void) {
     return (texte: string) => {
@@ -70,18 +71,17 @@ export default function SaisieEnfant() {
     };
     const options = { personneRef: code, oedemesIncertains: oedemes === 'Incertain' };
 
-    setEnvoiEnCours(true);
-    try {
-      const resultat = await effectuerDepistage('enfant', mesure, options);
-      setErreurs({});
-      router.push({ pathname: '/resultat', params: paramsResultat('enfant', resultat, options) });
-    } catch (e) {
-      const { erreurs: nouvelles, general } = erreurPourFormulaire(e, LIBELLES_CHAMPS);
-      setErreurs(nouvelles);
-      setErreurGenerale(general);
-    } finally {
-      setEnvoiEnCours(false);
-    }
+    await lancer(async () => {
+      try {
+        const resultat = await effectuerDepistage('enfant', mesure, options);
+        setErreurs({});
+        router.replace({ pathname: '/resultat', params: paramsResultat('enfant', resultat, options) });
+      } catch (e) {
+        const { erreurs: nouvelles, general } = erreurPourFormulaire(e, LIBELLES_CHAMPS);
+        setErreurs(nouvelles);
+        setErreurGenerale(general);
+      }
+    });
   }
 
   return (

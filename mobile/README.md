@@ -72,3 +72,13 @@ Les informations propres à l'application (code de la personne, œdèmes incerta
 - `PBCaptureScreen` importe `Camera` / `CameraType` de `expo-camera` (API historique, à vérifier avec le SDK 57 qui expose `CameraView`) ; `expo-camera` n'est pas installé.
 - Les écrans attendent un `depistage_id` avant la capture, alors qu'un dépistage n'existe qu'après validation.
 - Souhaitable : un contrat simple, par exemple `onValider({ pb_mm, methode: 'camera' })`, indépendant de la navigation, pour brancher son module dans la saisie Enfant (`pb_source: 'camera'`, `mode_saisie: 'vision'`).
+
+## Limites connues (non traitées)
+
+- **Données non chiffrées au repos** : la base SQLite et le code ou nom des personnes sont en clair sur le téléphone, alors que le cahier des charges (§9.4) exige un chiffrement. À traiter avec Rasmata (SQLCipher).
+- **Pas d'authentification** : `agent_id` et `centre_id` sont des constantes de démonstration (`src/constants/config.ts`). La détection de doublons et l'isolation par centre n'ont donc pas de sens réel tant qu'il n'y a pas de compte agent.
+- **Vision par ordinateur** : non intégrée (voir plus haut).
+- **Web** : l'historique n'y est conservé qu'en mémoire et il n'y a pas de mode hors ligne (démonstration seulement).
+- **Vérifié sur Android (TECNO KM6, Android 15) uniquement** ; iOS, le mode « grande police » du système et un build installable n'ont pas été testés.
+- **Code de la patiente** en texte libre : une faute de frappe crée une seconde patiente dans le suivi de grossesse.
+- Les tests de `sync/` (Jest, Rasmata) ne sont pas exécutés ici ; `npm test` ne couvre que `src/`.

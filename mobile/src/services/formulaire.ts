@@ -16,14 +16,17 @@ export function versEntier(texte: string): number | null {
   return n !== null && Number.isInteger(n) ? n : null;
 }
 
-// Date AAAA-MM-JJ valide, pas dans le futur.
+// Date AAAA-MM-JJ qui existe et n'est pas dans le futur. La comparaison se fait sur la date LOCALE du jour (celle que
+// l'agent voit et que l'app préremplit), pas sur minuit UTC : sinon la date du jour serait refusée dans les fuseaux
+// en avance sur UTC (Nigeria, France…).
 export function dateValide(texte: string, aujourdhui = new Date()): boolean {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(texte.trim());
+  const propre = texte.trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(propre);
   if (!m) return false;
   const [annee, mois, jour] = [Number(m[1]), Number(m[2]), Number(m[3])];
   const d = new Date(Date.UTC(annee, mois - 1, jour));
   const existe = d.getUTCFullYear() === annee && d.getUTCMonth() === mois - 1 && d.getUTCDate() === jour;
-  return existe && d.getTime() <= aujourdhui.getTime();
+  return existe && propre <= dateDuJour(aujourdhui);
 }
 
 export function dateDuJour(maintenant = new Date()): string {

@@ -62,8 +62,18 @@ export function genererIdLocal(): string {
   });
 }
 
+// Une ligne dont les mesures seraient illisibles ne doit jamais faire échouer tout l'historique.
+function lireMesures(json: string): Record<string, unknown> {
+  try {
+    const m: unknown = JSON.parse(json);
+    return typeof m === 'object' && m !== null && !Array.isArray(m) ? (m as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
 function canonique(mesuresJson: string): string {
-  const m = JSON.parse(mesuresJson) as Record<string, unknown>;
+  const m = lireMesures(mesuresJson);
   return JSON.stringify(Object.keys(m).sort().map((k) => [k, m[k]]));
 }
 
@@ -77,7 +87,7 @@ export function memeEvenement(a: LigneLocale, b: LigneLocale, xa?: Extras, xb?: 
 }
 
 export function versEnregistrement(l: LigneLocale, extras?: Extras, doublonConfirme = true): EnregistrementHistorique {
-  const mesures = JSON.parse(l.mesures) as Record<string, unknown>;
+  const mesures = lireMesures(l.mesures);
   const refMesures = l.population === 'enceinte' && typeof mesures.personne_id === 'string' ? mesures.personne_id : null;
   return {
     id: l.local_id,
@@ -124,6 +134,7 @@ interface Base {
 let pretPromise: Promise<{ sync: ModuleSync; db: Base }> | null = null;
 
 function pret() {
+  // Une initialisation qui échoue ne doit pas rester en cache toute la session : on réessaie à l'appel suivant.
   pretPromise ??= (async () => {
     const sync = await import('../../sync');
     const db = (await sync.initDatabase()) as Base;
@@ -137,7 +148,10 @@ function pret() {
       );
     `);
     return { sync, db };
-  })();
+  })().catch((e) => {
+    pretPromise = null;
+    throw e;
+  });
   return pretPromise;
 }
 
