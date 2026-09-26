@@ -27,7 +27,7 @@ class CaptureVision(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     population = Column(String, nullable=False, index=True)
     type_mesure = Column(String, nullable=False)  # "pb", "hauteur_uterine"
-    valeur_estimee = Column(Float, nullable=False)
+    valeur_estimee = Column(Float, nullable=True)
     score_confiance = Column(Float, nullable=True)  # ex: 0.95
     image_metadata = Column(JSON, nullable=True)
     statut_validation = Column(String, default="en_attente", nullable=False)  # "en_attente", "valide", "corrige", "rejete"

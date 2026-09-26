@@ -218,3 +218,55 @@ def test_export_csv_and_fiche_orientation():
     assert fiche_res.status_code == 200
     assert "text/html" in fiche_res.headers["content-type"]
     assert "FICHE DE TRANSFERT PCIMA" in fiche_res.text
+
+
+def test_fanta_mobile_payloads_and_vision_compatibility():
+    """Test compatibility with Fanta's mobile payloads and Lionel's Vision API payloads."""
+    # 1. Enfant depistage with Fanta's photo control metadata
+    payload_fanta = {
+        "population": "enfant",
+        "mesures": {
+            "pb": 120.0,
+            "pb_source": "manuel",
+            "poids": 9.5,
+            "taille": 82.0,
+            "oedemes_bilateraux": False,
+            "oedemes_source": "clinique",
+            "pb_controle_photo": "coherent",
+            "pb_couleur_detectee": "jaune"
+        },
+        "agent_id": "FANTA_ASC",
+        "centre_id": "CSPS_Kari",
+        "mode_saisie": "manuel"
+    }
+    res = client.post("/depistage", json=payload_fanta)
+    assert res.status_code == 201
+    data = res.json()
+    assert data["classification"] == "modéré"
+    assert data["mesures"]["pb_controle_photo"] == "coherent"
+
+    # 2. Vision capture without calibration (valeur_estimee null, image_ref provided)
+    capture_payload = {
+        "type_mesure": "pb",
+        "valeur_estimee": None,
+        "image_ref": "file:///cache/photo.jpg",
+        "score_qualite": 0.88,
+        "methode_mesure": "heuristique_calibration"
+    }
+    cap_res = client.post("/capture-vision", json=capture_payload)
+    assert cap_res.status_code == 201
+    cap_data = cap_res.json()
+    assert cap_data["statut_validation"] == "en_attente"
+
+    # 3. Vision validation with mobile aliases (statut and agent_validation_id)
+    val_payload = {
+        "valeur_validee": 105.0,
+        "statut": "confirmee",
+        "agent_validation_id": "FANTA_ASC",
+        "oedemes_bilateraux": False
+    }
+    val_res = client.put(f"/capture-vision/{cap_data['id']}/validation", json=val_payload)
+    assert val_res.status_code == 200
+    val_data = val_res.json()
+    assert val_data["classification"] == "sévère"
+

@@ -84,18 +84,25 @@ class DepistageResponse(BaseModel):
 
 # --- Capture Vision AI Schemas ---
 class CaptureVisionCreate(BaseModel):
-    population: str  # "enfant", "enceinte", "personne_agee"
-    type_mesure: str = "pb"  # "pb", "hauteur_uterine"
-    valeur_estimee: float
+    depistage_id: Optional[Any] = None
+    population: Optional[str] = "enfant"  # "enfant", "enceinte", "personne_agee"
+    type_mesure: str = "pb"  # "pb", "oedeme", "hauteur_uterine"
+    valeur_estimee: Optional[float] = None
     score_confiance: Optional[float] = 0.95
+    score_qualite: Optional[float] = None
+    image_ref: Optional[str] = None
+    methode_mesure: Optional[str] = None
     image_metadata: Optional[Dict[str, Any]] = None
-    agent_id: str
-    centre_id: str
+    agent_id: Optional[str] = "ASC_DEMO"
+    centre_id: Optional[str] = "CSPS_Kari"
 
 class CaptureVisionValidationPayload(BaseModel):
-    valeur_validee: float
-    statut_validation: str = "valide"  # "valide", "corrige", "rejete"
-    agent_id: str
+    valeur_validee: Optional[float] = None
+    statut_validation: Optional[str] = "valide"  # "valide", "corrige", "rejete"
+    statut: Optional[str] = None  # Alias mobile ("confirmee", "corrigee", "rejetee")
+    agent_id: Optional[str] = None
+    agent_validation_id: Optional[str] = None  # Alias mobile
+    date_validation: Optional[str] = None
     personne_id: Optional[str] = None
     semaine_amenorrhee: Optional[int] = None
     oedemes_bilateraux: bool = False
@@ -103,17 +110,17 @@ class CaptureVisionValidationPayload(BaseModel):
     taille: Optional[float] = None
 
 class CaptureVisionResponse(BaseModel):
-    id: int
+    id: Any
     population: str
     type_mesure: str
-    valeur_estimee: float
+    valeur_estimee: Optional[float] = None
     score_confiance: Optional[float] = None
     statut_validation: str
     valeur_validee: Optional[float] = None
     agent_id: str
     centre_id: str
     date_capture: datetime
-    depistage_id: Optional[int] = None
+    depistage_id: Optional[Any] = None
     message_asc: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
