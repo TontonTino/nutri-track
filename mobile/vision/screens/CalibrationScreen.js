@@ -20,7 +20,7 @@
  *   route.params.depistage_id, agent_id, imageUri, imageWidth, imageHeight
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -37,6 +37,7 @@ import {
 import { useCalibration }   from '../hooks/useCalibration';
 import CalibrationOverlay   from '../components/CalibrationOverlay';
 import { analyserPhotoBras } from '../analyse/photo';
+import PoseWebView           from '../pose/PoseWebView';
 
 // ─── Estimation du PB ────────────────────────────────────────────────────────
 //
@@ -72,6 +73,13 @@ export default function CalibrationScreen({ navigation, route }) {
   // ── État : analyse de la photo en cours (détection réelle, quelques centaines de ms) ──
   const [analysing, setAnalysing] = useState(false);
 
+  // Détection de pose (MoveNet, dans une WebView cachée) : montée dès l'entrée
+  // sur cet écran pour que le modèle ait le temps de se charger pendant que
+  // l'agent aligne la calibration. Si le modèle n'a pas pu charger (pas de
+  // réseau au premier essai, par exemple), detecterPose renvoie null et
+  // analyse/photo.js retombe silencieusement sur la zone de guidage fixe.
+  const poseRef = useRef(null);
+
   // ── Hook de calibration ───────────────────────────────────────────────────
   const {
     refRect,
@@ -105,6 +113,7 @@ export default function CalibrationScreen({ navigation, route }) {
             displayWidth,
             displayHeight,
             pixelsPerCm: calib.pixelsPerCm,
+            detecterPose: poseRef.current ? poseRef.current.detecterPose : undefined,
           })
         : null;
     } catch (err) {
@@ -192,6 +201,8 @@ export default function CalibrationScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
+
+      <PoseWebView ref={poseRef} />
 
       {/* ── Image de référence ── */}
       <View style={styles.imageContainer}>

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<!--
+  poseWebView.html
+  Exécuté dans une WebView cachée (voir PoseWebView.js). Tourne en JavaScript
+  pur — c'est la version web de TensorFlow.js, pas @tensorflow/tfjs-react-native
+  (abandonnée, incompatible avec les versions récentes de React Native : voir
+  la note dans PoseWebView.js).
+
+  Rôle : recevoir une photo (base64) envoyée par React Native, détecter la
+  position de l'épaule et du coude avec MoveNet, renvoyer leurs coordonnées.
+  Ne mesure PAS la largeur du bras — ça reste le rôle de
+  mobile/vision/analyse/largeurBras.js, sur la photo déjà recadrée.
+
+  Réseau : la première ouverture doit pouvoir charger ces scripts (quelques
+  Mo). Une fois chargés, la WebView les garde en cache et les réutilise hors
+  connexion. Sans réseau AU TOUT PREMIER essai, le chargement échoue et
+  PoseWebView.js bascule sur le repli existant (zone de guidage fixe) —
+  jamais de blocage pour l'agent.
+-->
+<html>
+<head>
+  <meta charset="utf-8" />
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.22.0/dist/tf-core.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.22.0/dist/tf-converter.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.22.0/dist/tf-backend-webgl.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-cpu@4.22.0/dist/tf-backend-cpu.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+</head>
+<body style="margin:0">
+<script>
+  (function () {
+    var detecteur = null;
+    var pret = false;
+
+    function envoyer(message) {
+      // document.postMessage sur Android, window.ReactNativeWebView.postMessage
+      // partout — react-native-webview expose ce deuxième pont dans les deux cas.
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify(message));
+      }
+    }
+
+    async function initialiser() {
+      try {
+        try {
+          await tf.setBackend('webgl');
+        } catch (e) {
+          // Certaines WebView Android n'exposent pas WebGL correctement :
+          // repli CPU, plus lent mais fonctionnel pour une seule photo.
+          await tf.setBackend('cpu');
+        }
+        await tf.ready();
+        detecteur = await poseDetection.createDetector(
+          poseDetection.SupportedModels.MoveNet,
+          { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING },
+        );
+        pret = true;
+        envoyer({ type: 'pret', backend: tf.getBackend() });
+      } catch (erreur) {
+        envoyer({ type: 'erreur', etape: 'initialisation', message: String(erreur && erreur.message || erreur) });
+      }
+    }
+
+    function chargerImage(base64) {
+      return new Promise(function (resolve, reject) {
+        var img = new Image();
+        img.onload = function () { resolve(img); };
+        img.onerror = function () { reject(new Error('image invalide')); };
+        img.src = 'data:image/jpeg;base64,' + base64;
+      });
+    }
+
+    function extraireKeypoint(keypoints, nom) {
+      var k = keypoints.find(function (p) { return p.name === nom; });
+      return k ? { x: k.x, y: k.y, score: k.score || 0 } : null;
+    }
+
+    // Pour un côté (gauche/droite), combine l'épaule et le coude : les deux
+    // doivent être visibles avec une confiance correcte, sinon ce côté est
+    // écarté plutôt que d'utiliser une position à moitié fiable.
+    function analyserCote(keypoints, prefixe) {
+      var epaule = extraireKeypoint(keypoints, prefixe + '_shoulder');
+      var coude = extraireKeypoint(keypoints, prefixe + '_elbow');
+      if (!epaule || !coude) return null;
+      var confiance = Math.min(epaule.score, coude.score);
+      return {
+        milieu: { x: (epaule.x + coude.x) / 2, y: (epaule.y + coude.y) / 2 },
+        confiance: confiance,
+      };
+    }
+
+    async function analyserPhoto(base64) {
+      if (!pret || !detecteur) {
+        envoyer({ type: 'erreur', etape: 'analyse', message: 'modèle non prêt' });
+        return;
+      }
+      try {
+        var img = await chargerImage(base64);
+        var poses = await detecteur.estimatePoses(img, { flipHorizontal: false });
+        if (!poses || poses.length === 0) {
+          envoyer({ type: 'resultat', trouve: false });
+          return;
+        }
+        var keypoints = poses[0].keypoints;
+        var gauche = analyserCote(keypoints, 'left');
+        var droite = analyserCote(keypoints, 'right');
+
+        envoyer({
+          type: 'resultat',
+          trouve: true,
+          largeurImage: img.naturalWidth,
+          hauteurImage: img.naturalHeight,
+          gauche: gauche,
+          droite: droite,
+        });
+      } catch (erreur) {
+        envoyer({ type: 'erreur', etape: 'analyse', message: String(erreur && erreur.message || erreur) });
+      }
+    }
+
+    function surMessage(event) {
+      var data;
+      try {
+        data = JSON.parse(event.data);
+      } catch (e) {
+        return;
+      }
+      if (data && data.type === 'analyser' && data.base64) {
+        analyserPhoto(data.base64);
+      }
+    }
+
+    // react-native-webview livre les messages sur document ET window selon
+    // la plateforme : on écoute les deux, sans risque (un seul déclenchera).
+    document.addEventListener('message', surMessage);
+    window.addEventListener('message', surMessage);
+
+    initialiser();
+  })();
+</script>
+</body>
+</html>
