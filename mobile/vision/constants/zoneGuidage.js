@@ -31,3 +31,65 @@ export function zoneGuidageDp(displayWidth, displayHeight) {
     height,
   };
 }
+
+/**
+ * Convertit une zone exprimée en coordonnées d'écran (dp) vers des pixels
+ * réels de la photo capturée.
+ *
+ * Ce n'est PAS une simple règle de trois (imageWidth/displayWidth) : l'aperçu
+ * caméra remplit l'écran en mode « cover », et l'écran du téléphone n'a
+ * presque jamais le même rapport largeur/hauteur que la photo capturée
+ * (ex. caméra en 16:9, écran en ~20:9). Le mode « cover » ne déforme pas
+ * l'image, il en affiche seulement une partie : soit les bords gauche/droite
+ * de la photo sont hors écran (photo plus « large » que l'écran ne le
+ * montre), soit c'est le haut/bas. Ignorer ça revient à mal placer la zone
+ * réellement analysée par rapport à ce que l'agent a vu et cadré — l'erreur
+ * qui causait « Invalid crop options » quand la zone calculée débordait de
+ * la photo.
+ *
+ * @param {{x:number,y:number,width:number,height:number}} zoneEcran - en dp
+ * @param {number} displayWidth - largeur de l'écran (dp)
+ * @param {number} displayHeight - hauteur de l'écran (dp)
+ * @param {number} imageWidth - largeur réelle de la photo (px)
+ * @param {number} imageHeight - hauteur réelle de la photo (px)
+ * @returns {{originX:number, originY:number, width:number, height:number}}
+ */
+export function zoneEcranVersPhoto(zoneEcran, displayWidth, displayHeight, imageWidth, imageHeight) {
+  const ratioEcran = displayWidth / displayHeight;
+  const ratioPhoto = imageWidth / imageHeight;
+
+  // Fraction de la largeur/hauteur RÉELLE de la photo effectivement visible
+  // à l'écran (le reste est hors cadre, coupé par le mode « cover »).
+  let fractionVisibleX = 1;
+  let fractionVisibleY = 1;
+  if (ratioEcran < ratioPhoto) {
+    // Écran plus étroit que la photo à hauteur égale : les côtés de la photo
+    // débordent de l'écran (coupés à gauche/droite).
+    fractionVisibleX = ratioEcran / ratioPhoto;
+  } else if (ratioEcran > ratioPhoto) {
+    // Écran plus large que la photo à largeur égale : le haut/bas de la
+    // photo déborde de l'écran (coupé en haut/bas).
+    fractionVisibleY = ratioPhoto / ratioEcran;
+  }
+
+  const margeX = (1 - fractionVisibleX) / 2; // fraction de la photo coupée de CHAQUE côté
+  const margeY = (1 - fractionVisibleY) / 2;
+
+  const xFractionEcran = zoneEcran.x / displayWidth;
+  const yFractionEcran = zoneEcran.y / displayHeight;
+  const wFractionEcran = zoneEcran.width / displayWidth;
+  const hFractionEcran = zoneEcran.height / displayHeight;
+
+  const xFractionPhoto = margeX + xFractionEcran * fractionVisibleX;
+  const yFractionPhoto = margeY + yFractionEcran * fractionVisibleY;
+  const wFractionPhoto = wFractionEcran * fractionVisibleX;
+  const hFractionPhoto = hFractionEcran * fractionVisibleY;
+
+  const originX = Math.max(0, Math.min(imageWidth - 1, Math.round(xFractionPhoto * imageWidth)));
+  const originY = Math.max(0, Math.min(imageHeight - 1, Math.round(yFractionPhoto * imageHeight)));
+  // Clampée pour ne JAMAIS déborder de la photo, même en cas d'arrondi limite.
+  const width = Math.max(1, Math.min(imageWidth - originX, Math.round(wFractionPhoto * imageWidth)));
+  const height = Math.max(1, Math.min(imageHeight - originY, Math.round(hFractionPhoto * imageHeight)));
+
+  return { originX, originY, width, height };
+}

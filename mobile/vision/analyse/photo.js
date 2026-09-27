@@ -23,7 +23,7 @@ import { File } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { decode } from 'jpeg-js';
 
-import { zoneGuidageDp } from '../constants/zoneGuidage';
+import { zoneGuidageDp, zoneEcranVersPhoto } from '../constants/zoneGuidage';
 import { zoneDepuisPose } from '../pose/zoneDepuisPose';
 import { estimerPBDepuisPixels } from './estimationPB';
 
@@ -72,18 +72,14 @@ function supprimerPhotoReduite(uri) {
   }
 }
 
-// Zone de guidage fixe (repli), convertie en pixels réels de la photo à
-// partir des dimensions d'affichage au moment de la capture.
+// Zone de guidage fixe (repli), convertie en pixels réels de la photo en
+// tenant compte du recadrage "cover" de l'aperçu caméra (voir
+// zoneEcranVersPhoto dans constants/zoneGuidage.js — une simple règle de
+// trois sur largeur/hauteur est incorrecte dès que l'écran et la photo n'ont
+// pas le même rapport d'aspect, ce qui est le cas quasi systématiquement).
 function zoneFixe(imageWidth, imageHeight, displayWidth, displayHeight) {
   const zoneDp = zoneGuidageDp(displayWidth, displayHeight);
-  const scaleX = imageWidth / displayWidth;
-  const scaleY = imageHeight / displayHeight;
-  return {
-    originX: Math.max(0, Math.round(zoneDp.x * scaleX)),
-    originY: Math.max(0, Math.round(zoneDp.y * scaleY)),
-    width: Math.max(1, Math.min(imageWidth, Math.round(zoneDp.width * scaleX))),
-    height: Math.max(1, Math.min(imageHeight, Math.round(zoneDp.height * scaleY))),
-  };
+  return zoneEcranVersPhoto(zoneDp, displayWidth, displayHeight, imageWidth, imageHeight);
 }
 
 // Tente la détection de pose sur une copie réduite de la photo entière (il
