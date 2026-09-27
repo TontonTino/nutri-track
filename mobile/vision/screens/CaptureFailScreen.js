@@ -55,6 +55,19 @@ const RAISON_CONFIG = {
       'Alternative : utilisez une feuille A4 pliée en deux',
     ],
   },
+  bras_non_detecte: {
+    icon: '💪',
+    titre: 'Bras non détecté avec certitude',
+    description:
+      'Le contour du bras n\'est pas assez net dans l\'image pour une mesure fiable.\n' +
+      'Plutôt que d\'afficher un chiffre incertain, on vous propose de reprendre la photo.',
+    conseils: [
+      'Placez le bras bien centré dans le cadre, sur un fond si possible uni',
+      'Évitez les vêtements ou manches qui recouvrent la zone de mesure',
+      'Un éclairage plus franc améliore nettement la détection',
+      'Vous pouvez aussi passer directement à la saisie manuelle',
+    ],
+  },
   agent: {
     icon: '🔄',
     titre: 'Reprise demandée',

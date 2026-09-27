@@ -7,7 +7,10 @@
  *   2. Superpose CalibrationOverlay (rectangle draggable)
  *   3. L'agent aligne le rectangle sur l'objet de référence
  *   4. Il appuie sur "Calibrer" → useCalibration.confirmCalibration()
- *   5. Si confirmé → navigation vers ConfirmationScreen avec calibration + estimée
+ *   5. Si confirmé → analyse réelle des pixels de la zone de guidage
+ *      (voir ../analyse/photo.js), puis navigation vers ConfirmationScreen
+ *      avec calibration + estimée — ou vers CaptureFailScreen si la
+ *      détection n'est pas assez fiable pour être présentée à l'agent.
  *
  * Cas d'échec (point 6 du cahier) :
  *   Si l'agent déclare qu'aucun objet de référence n'est présent,
@@ -27,54 +30,28 @@ import {
   SafeAreaView,
   ScrollView,
   Alert,
+  ActivityIndicator,
   useWindowDimensions,
 } from 'react-native';
 
-import { useCalibration }  from '../hooks/useCalibration';
-import { pxToCm, cmToMm } from '../hooks/useCalibration';
-import CalibrationOverlay  from '../components/CalibrationOverlay';
+import { useCalibration }   from '../hooks/useCalibration';
+import CalibrationOverlay   from '../components/CalibrationOverlay';
+import { analyserPhotoBras } from '../analyse/photo';
 
-// ─── Heuristique PB ──────────────────────────────────────────────────────────
+// ─── Estimation du PB ────────────────────────────────────────────────────────
 //
-// Modèle géométrique simplifié (assumé comme tel — cf. README du module) :
+// Modèle géométrique inchangé (assumé comme tel — cf. README du module) :
 //   Le bras est approximé par un cylindre vu de face.
 //   La largeur visible du bras à mi-hauteur du cadre ≈ son diamètre.
 //   PB ≈ π × diamètre  (périmètre d'un cercle)
 //
-// En pratique pour la démo : on lit la largeur du bras dans la zone de guidage.
-// Ici, faute d'une détection de contours implémentée, on utilise une heuristique
-// basée sur la largeur du cadre de guidage (ZONE_W ≈ 60 % de l'écran display).
-// Le résultat sera dans une plage réaliste (100–160 mm adulte).
+// Ce qui change : le diamètre vient maintenant d'une vraie détection de contour
+// sur les pixels de la photo (mobile/vision/analyse/), pas d'une fraction fixe
+// du cadre. Voir analyse/largeurBras.js pour le détail de la détection et
+// analyse/photo.js pour le recadrage sur la zone de guidage.
 //
-// ⚠️  Ce calcul est délibérément approximatif et clairement documenté comme tel.
-//      Il n'a pas vocation à remplacer une mesure clinique.
+// ⚠️  Reste une heuristique non validée cliniquement, jamais un diagnostic.
 //      Référence : AnthroNet (JMIR, preprint non relu, n=200) — non intégré ici.
-
-/**
- * @param {number} displayWidth   - largeur de l'écran en dp
- * @param {number} pixelsPerCm    - facteur de calibration
- * @param {number} imageWidth     - largeur réelle de l'image en px
- * @returns {{ valeurMm: number, scoreCm: number, scoreConfiance: number, scoreQualite: number }}
- */
-function estimerPB(displayWidth, pixelsPerCm, imageWidth) {
-  // Largeur du bras approximée : 60 % de la largeur d'écran, divisée par le
-  // rapport affichage/image réelle, puis convertie en cm.
-  const scaleX = imageWidth / displayWidth;
-  const largeurBrasPx = displayWidth * 0.60 * scaleX * 0.55; // ~33 % de l'image réelle
-  const diametreCm = pxToCm(largeurBrasPx, pixelsPerCm) ?? 3.5;
-  const pbCm = Math.PI * diametreCm;
-  const valeurMm = cmToMm(pbCm);
-
-  // Score de confiance : fixe à 0.60 (heuristique géométrique non validée)
-  // Augmenté légèrement si la valeur est dans la plage adulte normale
-  const dansPlagNormale = valeurMm >= 100 && valeurMm <= 200;
-  const scoreConfiance = dansPlagNormale ? 0.62 : 0.45;
-
-  // Score de qualité : fixe à 0.70 pour la démo (pas d'analyse de flou implémentée)
-  const scoreQualite = 0.70;
-
-  return { valeurMm, scoreCm: pbCm, scoreConfiance, scoreQualite };
-}
 
 // ─── Composant ─────────────────────────────────────────────────────────────────
 
@@ -92,6 +69,9 @@ export default function CalibrationScreen({ navigation, route }) {
   // ── État : objet de référence absent ─────────────────────────────────────
   const [noCalibObject, setNoCalibObject] = useState(false);
 
+  // ── État : analyse de la photo en cours (détection réelle, quelques centaines de ms) ──
+  const [analysing, setAnalysing] = useState(false);
+
   // ── Hook de calibration ───────────────────────────────────────────────────
   const {
     refRect,
@@ -105,7 +85,7 @@ export default function CalibrationScreen({ navigation, route }) {
 
   // ── Confirmer la calibration et estimer le PB ─────────────────────────────
 
-  const handleConfirmCalibration = useCallback(() => {
+  const handleConfirmCalibration = useCallback(async () => {
     const calib = confirmCalibration();
     if (!calib || !calib.isValid) {
       Alert.alert(
@@ -115,26 +95,61 @@ export default function CalibrationScreen({ navigation, route }) {
       return;
     }
 
-    // Calcul heuristique PB
-    const { valeurMm, scoreConfiance, scoreQualite } = estimerPB(
-      displayWidth,
-      calib.pixelsPerCm,
-      imageWidth,
-    );
+    setAnalysing(true);
+    let estimation = null;
+    try {
+      estimation = imageUri
+        ? await analyserPhotoBras(imageUri, {
+            imageWidth,
+            imageHeight,
+            displayWidth,
+            displayHeight,
+            pixelsPerCm: calib.pixelsPerCm,
+          })
+        : null;
+    } catch (err) {
+      console.error('[CalibrationScreen] Erreur analyse photo :', err);
+      estimation = null;
+    } finally {
+      setAnalysing(false);
+    }
 
-    // Navigation vers l'écran de confirmation
+    if (!estimation) {
+      // La détection n'est pas assez fiable (bras peu visible, contraste
+      // insuffisant, résultat hors plage plausible…) : jamais de chiffre
+      // inventé, cf. règle d'or CONTRAT_INTERFACE.md. On propose la reprise
+      // ou la saisie manuelle plutôt qu'une estimation douteuse.
+      navigation.navigate('CaptureFailScreen', {
+        raison: 'bras_non_detecte',
+        depistage_id,
+        agent_id,
+      });
+      return;
+    }
+
+    // Navigation vers l'écran de confirmation.
     // RIEN n'est envoyé à l'API avant que l'agent confirme là-bas.
     navigation.navigate('ConfirmationScreen', {
       depistage_id,
       agent_id,
       imageUri,
-      valeurEstimee:   valeurMm,
-      scoreConfiance,
-      scoreQualite,
+      valeurEstimee:   estimation.valeurMm,
+      scoreConfiance:  estimation.scoreConfiance,
+      scoreQualite:    estimation.scoreQualite,
       calibration:     calib,
       forceSaisieManuelle: false,
     });
-  }, [confirmCalibration, displayWidth, imageWidth, depistage_id, agent_id, imageUri, navigation]);
+  }, [
+    confirmCalibration,
+    imageUri,
+    imageWidth,
+    imageHeight,
+    displayWidth,
+    displayHeight,
+    depistage_id,
+    agent_id,
+    navigation,
+  ]);
 
   // ── Fallback : saisie manuelle (objet absent ou agent qui préfère) ────────
 
@@ -223,11 +238,16 @@ export default function CalibrationScreen({ navigation, route }) {
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.primaryBtn, isConfirmed && styles.primaryBtnDone]}
-            onPress={isConfirmed ? handleConfirmCalibration : handleConfirmCalibration}
+            onPress={handleConfirmCalibration}
+            disabled={analysing}
           >
-            <Text style={styles.primaryBtnText}>
-              {isConfirmed ? '▶ Calculer le PB' : '✔ Calibrer'}
-            </Text>
+            {analysing ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.primaryBtnText}>
+                {isConfirmed ? '▶ Calculer le PB' : '✔ Calibrer'}
+              </Text>
+            )}
           </TouchableOpacity>
 
           {isConfirmed && (

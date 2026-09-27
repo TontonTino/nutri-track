@@ -14,14 +14,18 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, Animated, StyleSheet, Dimensions } from 'react-native';
 
+import { zoneGuidageDp } from '../constants/zoneGuidage';
+
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
-// Zone centrale dans laquelle le bras doit apparaître (60 % de la largeur,
-// centrée verticalement dans les 2/3 supérieurs de l'écran).
-const ZONE_W = SCREEN_W * 0.60;
-const ZONE_H = SCREEN_H * 0.30;
-const ZONE_LEFT = (SCREEN_W - ZONE_W) / 2;
-const ZONE_TOP = SCREEN_H * 0.20;
+// Zone centrale dans laquelle le bras doit apparaître : définition partagée avec
+// mobile/vision/analyse/photo.js (voir constants/zoneGuidage.js) pour que la zone
+// affichée à l'agent soit exactement celle qui est analysée.
+const ZONE = zoneGuidageDp(SCREEN_W, SCREEN_H);
+const ZONE_W = ZONE.width;
+const ZONE_H = ZONE.height;
+const ZONE_LEFT = ZONE.x;
+const ZONE_TOP = ZONE.y;
 
 // Longueur des coins (L-shape corners)
 const CORNER = 28;
