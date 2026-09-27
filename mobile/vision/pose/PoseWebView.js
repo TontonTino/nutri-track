@@ -53,11 +53,13 @@ const PoseWebView = forwardRef(function PoseWebView(_props, ref) {
     }
 
     if (data.type === 'pret') {
+      console.log('[PoseWebView] Modèle de pose prêt, backend :', data.backend);
       setModeleEstPret(true);
       return;
     }
 
     if (data.type === 'erreur') {
+      console.log('[PoseWebView] Échec (' + data.etape + ') :', data.message);
       if (!modeleEstPret) setModeleIndisponible(true);
       if (enAttente.current) {
         enAttente.current.resolve(null);

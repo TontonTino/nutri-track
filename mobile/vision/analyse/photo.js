@@ -99,7 +99,16 @@ async function zoneParPose(uri, imageWidth, imageHeight, detecterPose) {
     if (!reduite.base64) return null;
 
     const resultatPose = await detecterPose(reduite.base64);
-    if (!resultatPose || !resultatPose.trouve) return null;
+    if (!resultatPose || !resultatPose.trouve) {
+      console.log('[photo.js] Pose non détectée (timeout, modèle indisponible, ou aucune personne trouvée)');
+      return null;
+    }
+    console.log(
+      '[photo.js] Pose détectée — confiance gauche:',
+      resultatPose.gauche ? resultatPose.gauche.confiance.toFixed(2) : 'n/a',
+      '| droite:',
+      resultatPose.droite ? resultatPose.droite.confiance.toFixed(2) : 'n/a',
+    );
 
     return zoneDepuisPose(resultatPose, imageWidth, imageHeight);
   } catch (err) {
@@ -127,6 +136,7 @@ export async function analyserPhotoBras(uri, params) {
 
   const zonePose = await zoneParPose(uri, imageWidth, imageHeight, detecterPose);
   const sourceZone = zonePose ? 'pose' : 'fixe';
+  console.log('[photo.js] Zone utilisée pour la mesure :', sourceZone);
   const region = zonePose ?? zoneFixe(imageWidth, imageHeight, displayWidth, displayHeight);
 
   const contexte = ImageManipulator.manipulate(uri);
