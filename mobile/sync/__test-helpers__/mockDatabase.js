@@ -5,7 +5,7 @@
  * exactes utilisées dans database.js / syncQueue.js et les rejoue sur des
  * tableaux JS en mémoire. Suffisant pour tester la LOGIQUE (file d'attente,
  * détection de conflit, sync) sans dépendre d'expo-sqlite (module natif,
- * indisponible sous Jest sans device/simulateur).
+ * indisponible sans device/simulateur).
  *
  * Si les requêtes SQL changent dans syncQueue.js, ce fichier doit être mis à jour.
  */
