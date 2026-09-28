@@ -28,3 +28,24 @@ export function champsVision(resultat: ResultatVision) {
     pb_methode_mesure: resultat.methode,
   };
 }
+
+// ─── Zone d'incertitude d'une mesure par caméra ─────────────────────────────────────────────────────────────────────
+// Seuils d'orientation du PB enfant (PCIMA Burkina Faso 2014) : mêmes valeurs que la table `seuils` du serveur et que le
+// classifieur hors ligne (sync/localClassifier.js). Ils ne servent ici qu'à repérer une mesure trop proche pour être
+// tranchée ; le classement, lui, reste celui du serveur (ou du classifieur hors ligne).
+export const SEUIL_PB_SEVERE_MM = 115;
+export const SEUIL_PB_MODERE_MM = 125;
+
+// Marge PROVISOIRE : l'erreur réelle de la caméra n'a pas encore été mesurée. À remplacer par la valeur observée
+// (GET /statistiques/vision, champ ecart_absolu_moyen_mm) dès que des essais avec un ruban de référence existent.
+export const MARGE_INCERTITUDE_VISION_MM = 10;
+
+// Vrai si l'écart entre le PB estimé et l'un des deux seuils est inférieur à la marge : la caméra peut alors se tromper de
+// catégorie, et l'erreur la plus grave est de ne pas repérer un enfant sévère (ou modéré).
+export function estDansZoneIncertaine(pbMm: number): boolean {
+  if (!Number.isFinite(pbMm)) return false;
+  return (
+    Math.abs(pbMm - SEUIL_PB_SEVERE_MM) <= MARGE_INCERTITUDE_VISION_MM ||
+    Math.abs(pbMm - SEUIL_PB_MODERE_MM) <= MARGE_INCERTITUDE_VISION_MM
+  );
+}

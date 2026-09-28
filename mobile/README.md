@@ -79,15 +79,15 @@ Le formulaire Enfant propose « Photographier le brassard (contrôle) » (`src/a
 
 Garanties : aucune estimation de l'IA n'entre dans le classement (seule la valeur lue par l'agent) ; le contrôle est indicatif ; la photo est analysée sur le téléphone puis **effacée** (reprise, validation ou sortie de l'écran). La source reste `pb_source: "manuel"` ; la traçabilité du contrôle part dans `mesures` : `pb_controle_photo` (`coherent` / `incoherent` / `non_detecte`) et `pb_couleur_detectee`.
 
-Pourquoi ce choix : l'estimation par calibration du module de Lionel (ci-dessous) suppose une **largeur de bras constante** (60 % de l'écran) : la carte convertit cette constante en cm, mais le bras n'est jamais mesuré. Une photo de profil ne donne d'ailleurs pas un PB fiable sans capteur de profondeur. La détection de couleur est une aide : elle ne détecte rien plutôt que de deviner quand la bande est absente ou mêlée, et peut se tromper sous une lumière colorée.
+**Ce flux n'est plus proposé sur le formulaire Enfant** : la caméra (section suivante) est désormais la seule méthode de mesure du PB. Le code de lecture du brassard est conservé (`brassard/`, écran `/brassard`) mais n'est plus atteignable depuis l'interface. Historique : la première version de l'estimation par caméra supposait une largeur de bras constante et n'était pas fiable ; elle a été remplacée par une vraie détection du contour du bras (voir ci-dessous).
 
-## Estimation par calibration (module de Lionel, désactivée par défaut)
+## Mesure du PB par la caméra (module de Lionel, méthode unique du formulaire Enfant)
 
-`EXPO_PUBLIC_VISION_CALIBRATION=true` réaffiche le bouton « Estimer par calibration (prototype) ».
+Le bouton « Mesurer le bras avec la caméra » est le seul moyen de mesurer le PB. La valeur reste modifiable à la main, comme solution de secours si la caméra est inutilisable (pas de lumière, échec de détection) : ce n'est pas une seconde méthode proposée. **Cette mesure n'est pas validée cliniquement.** Trois garde-fous : l'agent confirme ou corrige toujours la valeur avant l'envoi ; une mesure proche d'un seuil (à `MARGE_INCERTITUDE_VISION_MM` près, provisoire) affiche une alerte demandant de refaire ou faire confirmer la mesure ; l'erreur réelle est mesurée par `GET /statistiques/vision` (protocole : `docs/VALIDATION_VISION.md`).
 
 ### Intégration de `vision/`
 
-Le module de Lionel (`vision/`, importé **sans modification**) est hébergé dans l'app. Avec `EXPO_PUBLIC_VISION_CALIBRATION=true`, le formulaire Enfant propose « Estimer par calibration (prototype) », qui ouvre ses écrans Capture → Calibration → Confirmation. Le PB **confirmé ou corrigé par l'agent** revient dans le champ PB (jamais une estimation brute), puis le flux normal enregistre **un seul** dépistage (en ligne ou hors ligne).
+Le module de Lionel (`vision/`) est hébergé dans l'app. Le formulaire Enfant propose « Mesurer le bras avec la caméra », qui ouvre ses écrans Capture → Calibration → Confirmation. Le PB **confirmé ou corrigé par l'agent** revient dans le champ PB (jamais une estimation brute), puis le flux normal enregistre **un seul** dépistage (en ligne ou hors ligne).
 
 Comment c'est rendu compatible sans toucher à ses fichiers (`metro.config.js` + `metro-aliases.js`, actifs uniquement pour les fichiers de `vision/`) :
 

@@ -146,6 +146,7 @@ export default function CalibrationScreen({ navigation, route }) {
       scoreConfiance:  estimation.scoreConfiance,
       scoreQualite:    estimation.scoreQualite,
       calibration:     calib,
+      sourceZone:      estimation.sourceZone,
       forceSaisieManuelle: false,
     });
   }, [

@@ -13,6 +13,7 @@ from sqlalchemy import func, text
 from pydantic import BaseModel
 
 from app.database import Base, engine, get_db
+from app.precision_vision import calculer_precision
 from app import models, schemas, pipeline
 
 # Horodatage du démarrage du serveur pour le calcul d'uptime
@@ -572,6 +573,25 @@ def obtenir_statistiques(db: Session = Depends(get_db)):
         "par_population": par_population,
         "par_classification": par_classification
     }
+
+
+@app.get("/statistiques/vision", tags=["Vision AI (Lionel & Rasmata)"])
+def obtenir_precision_vision(db: Session = Depends(get_db)):
+    """
+    Précision observée de l'estimation du PB par la caméra : écart entre l'estimation brute et la valeur retenue par
+    l'agent, ventilé par méthode (zone détectée par pose ou zone de guidage fixe). Voir `note` dans la réponse : l'écart
+    n'est une erreur réelle que si la valeur retenue vient d'un ruban mesuré indépendamment.
+    """
+    seuils = {
+        s.type_mesure: s.valeur_seuil
+        for s in db.query(models.Seuils).filter(models.Seuils.population == "enfant").all()
+    }
+    lignes = db.query(models.Depistage.mesures).filter(models.Depistage.population == "enfant").all()
+    return calculer_precision(
+        (ligne[0] for ligne in lignes),
+        seuil_severe=seuils.get("pb_severe"),
+        seuil_modere=seuils.get("pb_modere"),
+    )
 
 
 # --- BONUS EXPORTS & FICHES D'ORIENTATION IMPRIMABLES ---

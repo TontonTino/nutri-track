@@ -103,8 +103,16 @@ export default function ConfirmationScreen({ navigation, route }) {
     scoreConfiance = null,
     scoreQualite   = null,
     calibration    = null,
+    sourceZone     = null,   // 'pose' (MoveNet) ou 'fixe' (zone de guidage) : pour comparer les deux méthodes sur le terrain
     forceSaisieManuelle = false,
   } = route?.params ?? {};
+
+  // Méthode ayant produit l'estimation, tracée côté serveur (pb_methode_mesure). Elle reste attachée à l'estimation
+  // même si l'agent corrige la valeur : c'est ce qui permet de mesurer, après coup, l'erreur de chaque méthode.
+  const methodeEstimation =
+    valeurEstimee != null && calibration
+      ? (sourceZone ? `pixels_zone_${sourceZone}` : 'heuristique_calibration')
+      : 'saisie_manuelle';
 
   // ── État de l'écran ──────────────────────────────────────────────────────
   const [mode, setMode] = useState(
@@ -188,12 +196,8 @@ export default function ConfirmationScreen({ navigation, route }) {
   // ── Bouton 1 : CONFIRMER ─────────────────────────────────────────────────
 
   const handleConfirmer = useCallback(() => {
-    envoyerDecision(
-      valeurEstimee,
-      'confirmee',
-      calibration ? 'heuristique_calibration' : 'saisie_manuelle',
-    );
-  }, [envoyerDecision, valeurEstimee, calibration]);
+    envoyerDecision(valeurEstimee, 'confirmee', methodeEstimation);
+  }, [envoyerDecision, valeurEstimee, methodeEstimation]);
 
   // ── Bouton 2 : CORRIGER → valider puis envoyer ───────────────────────────
 
@@ -204,8 +208,8 @@ export default function ConfirmationScreen({ navigation, route }) {
       return;
     }
     setErreurSaisie('');
-    envoyerDecision(mm, 'corrigee', 'saisie_manuelle');
-  }, [valeurSaisie, envoyerDecision]);
+    envoyerDecision(mm, 'corrigee', methodeEstimation);
+  }, [valeurSaisie, envoyerDecision, methodeEstimation]);
 
   // ── Bouton 3 : REPRENDRE LA CAPTURE ─────────────────────────────────────
   //   Aucun appel API. On remonte le stack jusqu'à PBCaptureScreen.

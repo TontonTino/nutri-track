@@ -6,14 +6,15 @@ import { useCallback, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { AideTestPression } from '../components/AideTestPression';
 import { BanniereErreur } from '../components/BanniereErreur';
+import { BanniereMesureIncertaine } from '../components/BanniereMesureIncertaine';
 import { BoutonPrincipal } from '../components/BoutonPrincipal';
 import { ChampNumerique } from '../components/ChampNumerique';
 import { ChoixUnique } from '../components/ChoixUnique';
 import { effectuerDepistage, paramsResultat } from '../services/depistage';
 import { useEnvoiUnique } from '../services/useEnvoiUnique';
-import { AGENT_ID, VISION_CALIBRATION_ACTIVE } from '../constants/config';
+import { AGENT_ID } from '../constants/config';
 import { champsBrassard, consommerLecture, type LectureBrassard, lectureActive } from '../brassard/lecture';
-import { champsVision, MODE_SAISIE_VISION, PB_SOURCE_VISION, visionActive } from '../vision/mesureAssistee';
+import { champsVision, estDansZoneIncertaine, MODE_SAISIE_VISION, PB_SOURCE_VISION, visionActive } from '../vision/mesureAssistee';
 import { consommerResultat, definirParametres, reinitialiserSession, type ResultatVision } from '../vision/session';
 import { type Erreurs, erreurPourFormulaire, versNombre } from '../services/formulaire';
 import { erreurOedemes, oedemesVersApi } from '../services/mappings';
@@ -66,10 +67,6 @@ export default function SaisieEnfant() {
     }, []),
   );
 
-  function ouvrirLectureBrassard() {
-    router.push('/brassard');
-  }
-
   function lancerCapture() {
     reinitialiserSession();
     definirParametres('PBCaptureScreen', { agent_id: AGENT_ID });
@@ -77,6 +74,7 @@ export default function SaisieEnfant() {
   }
 
   const visionEnCours = visionActive(pb, vision);
+  const zoneIncertaine = visionEnCours ? estDansZoneIncertaine(visionEnCours.valeur_mm) : false;
   const lectureEnCours = lectureActive(pb, lecture);
 
   function modifier(champ: string, maj: (v: string) => void) {
@@ -165,14 +163,12 @@ export default function SaisieEnfant() {
                   : 'Lu sur le brassard.'
               : visionEnCours
                 ? `Mesuré avec la caméra et ${visionEnCours.statut === 'corrigee' ? 'corrigé' : 'confirmé'} par vous. Modifiez le champ pour saisir à la main.`
-                : 'Mesure au brassard, en millimètres. Exemple : 112'
+                : 'Mesurez avec la caméra (bouton ci-dessous). Saisie à la main possible si la caméra est inutilisable.'
           }
         />
+        <BanniereMesureIncertaine visible={zoneIncertaine} />
         <View style={styles.blocCamera}>
-          <BoutonPrincipal titre="Photographier le brassard (contrôle)" secondaire onPress={ouvrirLectureBrassard} testID="bouton-brassard" />
-          {VISION_CALIBRATION_ACTIVE ? (
-            <BoutonPrincipal titre="Estimer par calibration (prototype)" secondaire onPress={lancerCapture} testID="bouton-camera" />
-          ) : null}
+          <BoutonPrincipal titre="Mesurer le bras avec la caméra" onPress={lancerCapture} testID="bouton-camera" />
         </View>
         <ChampNumerique testID="champ-poids" libelle="Poids" unite="kg" valeur={poids} onChange={modifier('poids', setPoids)} erreur={erreurs.poids} />
         <ChampNumerique testID="champ-taille" libelle="Taille" unite="cm" valeur={taille} onChange={modifier('taille', setTaille)} erreur={erreurs.taille} />
