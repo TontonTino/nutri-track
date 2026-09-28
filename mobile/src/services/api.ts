@@ -23,6 +23,25 @@ export function champDepuisMessage(detail: string): string | undefined {
   return /mesure '([^']+)'/.exec(detail)?.[1];
 }
 
+// FastAPI renvoie aussi un 422 "natif" pour une erreur de validation Pydantic (champ manquant,
+// mauvais type...) : `detail` est alors une liste d'objets { loc, msg, type }, pas une chaîne.
+// On l'isole ici pour afficher un message exploitable plutôt que le message générique.
+type DetailPydantic = { loc?: unknown[]; msg?: string; type?: string };
+
+function estDetailPydantic(detail: unknown): detail is DetailPydantic[] {
+  return Array.isArray(detail) && detail.every((d) => d && typeof d === 'object' && 'msg' in d);
+}
+
+function messageDepuisDetailPydantic(detail: DetailPydantic[]): string {
+  return detail
+    .map((d) => {
+      const champ = Array.isArray(d.loc) ? d.loc[d.loc.length - 1] : undefined;
+      return champ ? `${champ} : ${d.msg}` : d.msg;
+    })
+    .filter(Boolean)
+    .join(' ; ');
+}
+
 // Message du serveur (« La mesure 'poids' (50) est hors de la plage physiologique valide [1.5, 35.0]… ») reformulé en
 // clair ; si sa forme change, on affiche son texte tel quel plutôt que de le perdre.
 export function nettoyer(detail: string): string {
@@ -58,6 +77,9 @@ export async function postDepistage(req: DepistageRequest): Promise<DepistageRes
 
   if (res.status === 422 && typeof detail === 'string') {
     throw new ApiError('hors_plage', nettoyer(detail), champDepuisMessage(detail));
+  }
+  if (res.status === 422 && estDetailPydantic(detail)) {
+    throw new ApiError('hors_plage', messageDepuisDetailPydantic(detail));
   }
   if (!res.ok || corps === null) {
     const message = typeof detail === 'string' ? detail : `Réponse inattendue du serveur (code ${res.status}).`;

@@ -17,11 +17,12 @@
  * désynchronisé. À vérifier ensemble avant la démo (cf. README.md du dossier).
  */
 
-// Valeurs par défaut au 2026-09-26, identiques à seed_default_seuils() côté backend.
+// Valeurs par défaut au 2026-09-27, identiques à seed_default_seuils() côté backend
+// (backend/app/main.py, branche fix/alya-restructure).
 const SEUILS_PAR_DEFAUT = {
   enfant_pb_severe_mm: 115,
   enfant_pb_modere_mm: 125,
-  personne_agee_mna_sf_denutrition: 6, // score_mna_sf == 6 -> dénutrition probable (règle transversale)
+  personne_agee_mna_sf_denutrition: 7, // score_mna_sf <= 7 -> dénutrition probable (règle transversale)
   enceinte_ecart_hu_max_cm: 3,
 };
 
@@ -43,8 +44,8 @@ function classerEnfant(mesures, seuils) {
 
 /**
  * Classifie un dépistage "personne_agee" à partir du score MNA-SF.
- * Règle : score_mna_sf == 6 -> dénutrition probable (voir contrat).
- * On applique aussi "en dessous ou égal" par prudence, à confirmer avec Alya.
+ * Règle : score_mna_sf <= 7 -> dénutrition probable (voir seed_default_seuils()
+ * côté backend, pipeline.interpreter_indicateurs applique score <= score_seuil).
  */
 function classerPersonneAgee(mesures, seuils) {
   const score = Number(mesures.score_mna_sf);

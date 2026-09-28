@@ -3,7 +3,7 @@
 // (voir services/mappings.ts et components/AideTestPression.tsx) : l'API n'accepte qu'un booléen.
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AideTestPression } from '../components/AideTestPression';
 import { BanniereErreur } from '../components/BanniereErreur';
 import { BoutonPrincipal } from '../components/BoutonPrincipal';
@@ -11,12 +11,15 @@ import { ChampNumerique } from '../components/ChampNumerique';
 import { ChoixUnique } from '../components/ChoixUnique';
 import { effectuerDepistage, paramsResultat } from '../services/depistage';
 import { useEnvoiUnique } from '../services/useEnvoiUnique';
+import { consommerBrouillonAAppliquer, effacerBrouillon } from '../data/brouillon';
+import { useSauvegardeBrouillon } from '../data/useSauvegardeBrouillon';
 import { AGENT_ID, VISION_CALIBRATION_ACTIVE } from '../constants/config';
 import { champsBrassard, consommerLecture, type LectureBrassard, lectureActive } from '../brassard/lecture';
 import { champsVision, MODE_SAISIE_VISION, PB_SOURCE_VISION, visionActive } from '../vision/mesureAssistee';
 import { consommerResultat, definirParametres, reinitialiserSession, type ResultatVision } from '../vision/session';
 import { type Erreurs, erreurPourFormulaire, versNombre } from '../services/formulaire';
 import { erreurOedemes, oedemesVersApi } from '../services/mappings';
+import { couleurs } from '../constants/theme';
 import type { Echelle } from '../theme/echelle';
 import { useStyles } from '../theme/useEchelle';
 import type { MesureEnfant, Oedemes } from '../types/depistage';
@@ -31,17 +34,26 @@ const LIBELLES_CHAMPS: Record<string, string> = {
 
 export default function SaisieEnfant() {
   const styles = useStyles(creerStyles);
+  // Brouillon éventuel proposé par l'écran de consentement (voir data/brouillon.ts) : consommé une seule fois,
+  // au montage de l'écran, jamais réappliqué ensuite.
+  const [brouillonInitial] = useState(() => consommerBrouillonAAppliquer());
   // Les champs restent en texte : une erreur ne vide jamais le formulaire.
-  const [code, setCode] = useState('');
-  const [pb, setPb] = useState('');
-  const [poids, setPoids] = useState('');
-  const [taille, setTaille] = useState('');
-  const [oedemes, setOedemes] = useState<Oedemes | null>(null);
+  const [code, setCode] = useState(brouillonInitial?.identifiant ?? '');
+  const [pb, setPb] = useState(brouillonInitial?.champs.pb ?? '');
+  const [poids, setPoids] = useState(brouillonInitial?.champs.poids ?? '');
+  const [taille, setTaille] = useState(brouillonInitial?.champs.taille ?? '');
+  const [oedemes, setOedemes] = useState<Oedemes | null>(
+    OPTIONS_OEDEMES.find((o) => o === brouillonInitial?.champs.oedemes) ?? null,
+  );
   const [vision, setVision] = useState<ResultatVision | null>(null);
   const [lecture, setLecture] = useState<LectureBrassard | null>(null);
   const [erreurs, setErreurs] = useState<Erreurs>({});
   const [erreurGenerale, setErreurGenerale] = useState<string | null>(null);
   const { chargement: envoiEnCours, lancer } = useEnvoiUnique();
+
+  // Photo mise à part (jamais conservée, voir brassard/analyse.ts) : seuls les champs texte/choix sont
+  // sauvegardés en brouillon, un court instant après la dernière frappe.
+  useSauvegardeBrouillon('enfant', code, { pb, poids, taille, oedemes: oedemes ?? '' });
 
   // Retour de la lecture du brassard ou de la capture assistée : le PB validé par l'agent remplit le champ
   // (jamais une estimation brute de l'IA).
@@ -126,6 +138,7 @@ export default function SaisieEnfant() {
       try {
         const resultat = await effectuerDepistage('enfant', mesure, options);
         setErreurs({});
+        await effacerBrouillon('enfant');
         router.replace({ pathname: '/resultat', params: paramsResultat('enfant', resultat) });
       } catch (e) {
         const { erreurs: nouvelles, general } = erreurPourFormulaire(e, LIBELLES_CHAMPS);
@@ -140,6 +153,7 @@ export default function SaisieEnfant() {
       <ScrollView contentContainerStyle={styles.defilement} keyboardShouldPersistTaps="handled">
         <View style={styles.conteneur}>
         <BanniereErreur message={erreurGenerale} />
+        {brouillonInitial ? <Text style={styles.brouillonRepris} testID="brouillon-repris">Brouillon repris automatiquement.</Text> : null}
 
         <ChampNumerique
           testID="champ-code"
@@ -209,4 +223,5 @@ const creerStyles = (t: Echelle) =>
     defilement: { flexGrow: 1, alignItems: 'center' },
     conteneur: { width: '100%', maxWidth: t.contenuMax, padding: t.espace.l, paddingBottom: t.espace.xl * 1.5 },
     blocCamera: { marginTop: t.espace.xs, marginBottom: t.espace.xl, gap: t.espace.xs },
+    brouillonRepris: { color: couleurs.primaire, fontWeight: '600', fontSize: t.police.aide, marginBottom: t.espace.m },
   });

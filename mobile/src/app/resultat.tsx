@@ -1,5 +1,6 @@
 // Écran de résultat générique : identique pour les 3 populations, seuls les paramètres changent.
 // Hiérarchie : 1) le résultat (une seule zone de couleur), 2) l'action à mener, 3) quelques notes discrètes.
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 import { BackHandler, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -8,11 +9,11 @@ import { couleurs, teintes } from '../constants/theme';
 import { actionAffichee, categorieDe, libelleDe, nomPopulation } from '../services/presentation';
 import { carteDouce } from '../theme/carte';
 import type { Echelle } from '../theme/echelle';
-import { useStyles } from '../theme/useEchelle';
+import { useEchelle, useStyles } from '../theme/useEchelle';
 import type { Population } from '../types/depistage';
 
 const POPULATIONS: Population[] = ['enfant', 'enceinte', 'personne_agee'];
-const ACCENT_NOTE = '#E08600';
+const ACCENT_NOTE = teintes.modere.accent;
 
 function Note({ texte, accent, testID }: { texte: string; accent: string; testID?: string }) {
   const styles = useStyles(creerStyles);
@@ -25,6 +26,7 @@ function Note({ texte, accent, testID }: { texte: string; accent: string; testID
 }
 
 export default function Resultat() {
+  const t = useEchelle();
   const styles = useStyles(creerStyles);
 
   // Le bouton Retour d'Android ramène à l'accueil : le formulaire déjà envoyé n'est plus accessible, ce qui évite un
@@ -86,7 +88,7 @@ export default function Resultat() {
 
         <View style={[styles.resultat, { backgroundColor: teinte.fond, borderLeftColor: teinte.accent }]} accessibilityRole="summary" testID="carte-resultat">
           <View style={[styles.symbole, { backgroundColor: teinte.accent }]}>
-            <Text style={styles.symboleTexte}>{teinte.symbole}</Text>
+            <Ionicons name={teinte.icone} size={t.police.titre} color="#FFFFFF" />
           </View>
           <View style={styles.resultatTextes}>
             <Text style={[styles.libelle, { color: teinte.texte }]}>{libelle}</Text>
@@ -134,8 +136,7 @@ const creerStyles = (t: Echelle) =>
       borderLeftWidth: t.e(6),
       padding: t.espace.xl,
     },
-    symbole: { width: t.e(44), height: t.e(44), borderRadius: t.e(22), alignItems: 'center', justifyContent: 'center' },
-    symboleTexte: { color: '#FFFFFF', fontSize: t.police.titre, fontWeight: '800' },
+    symbole: { width: t.e(52), height: t.e(52), borderRadius: t.e(26), alignItems: 'center', justifyContent: 'center' },
     resultatTextes: { flex: 1, gap: t.espace.xs },
     libelle: { fontSize: t.police.titre, fontWeight: '800', lineHeight: t.police.titre * 1.25 },
     detail: { fontSize: t.police.corps },

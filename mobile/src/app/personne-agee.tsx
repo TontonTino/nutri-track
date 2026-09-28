@@ -8,6 +8,8 @@ import { BoutonPrincipal } from '../components/BoutonPrincipal';
 import { ChampNumerique } from '../components/ChampNumerique';
 import { ChoixUnique } from '../components/ChoixUnique';
 import { couleurs } from '../constants/theme';
+import { consommerBrouillonAAppliquer, effacerBrouillon } from '../data/brouillon';
+import { useSauvegardeBrouillon } from '../data/useSauvegardeBrouillon';
 import { effectuerDepistage, paramsResultat } from '../services/depistage';
 import { useEnvoiUnique } from '../services/useEnvoiUnique';
 import { type Erreurs, erreurPourFormulaire, versEntier, versNombre } from '../services/formulaire';
@@ -27,18 +29,44 @@ const LIBELLES_CHAMPS: Record<string, string> = {
   score_mna_sf: 'Score MNA-SF',
 };
 
+// Le questionnaire (choix par question) est structuré : on le range dans le brouillon sous forme de JSON, avec
+// une lecture défensive au retour (un brouillon corrompu ne doit jamais faire planter l'écran).
+function lireChoixInitial(json: string | undefined): Partial<Record<IdQuestionMna, string>> {
+  if (!json) return {};
+  try {
+    const p: unknown = JSON.parse(json);
+    return p && typeof p === 'object' && !Array.isArray(p) ? (p as Partial<Record<IdQuestionMna, string>>) : {};
+  } catch {
+    return {};
+  }
+}
+
 export default function SaisiePersonneAgee() {
   const styles = useStyles(creerStyles);
-  const [code, setCode] = useState('');
-  const [mode, setMode] = useState<Mode>('Questionnaire');
-  const [choix, setChoix] = useState<Partial<Record<IdQuestionMna, string>>>({});
-  const [mollet, setMollet] = useState('');
-  const [pbOpt, setPbOpt] = useState('');
-  const [scoreDirect, setScoreDirect] = useState('');
-  const [perte, setPerte] = useState<PertePoidsChoix | null>(null);
+  // Brouillon éventuel proposé par l'écran de consentement (voir data/brouillon.ts) : consommé une seule fois.
+  const [brouillonInitial] = useState(() => consommerBrouillonAAppliquer());
+  const initChamps = brouillonInitial?.champs ?? {};
+  const [code, setCode] = useState(brouillonInitial?.identifiant ?? '');
+  const [mode, setMode] = useState<Mode>(MODES.find((m) => m === initChamps.mode) ?? 'Questionnaire');
+  const [choix, setChoix] = useState<Partial<Record<IdQuestionMna, string>>>(() => lireChoixInitial(initChamps.choix));
+  const [mollet, setMollet] = useState(initChamps.mollet ?? '');
+  const [pbOpt, setPbOpt] = useState(initChamps.pbOpt ?? '');
+  const [scoreDirect, setScoreDirect] = useState(initChamps.scoreDirect ?? '');
+  const [perte, setPerte] = useState<PertePoidsChoix | null>(OPTIONS_PERTE.find((o) => o === initChamps.perte) ?? null);
   const [erreurs, setErreurs] = useState<Erreurs>({});
   const [erreurGenerale, setErreurGenerale] = useState<string | null>(null);
   const { chargement: envoiEnCours, lancer } = useEnvoiUnique();
+
+  useSauvegardeBrouillon('personne_agee', code, {
+    mode,
+    mollet,
+    pbOpt,
+    scoreDirect,
+    perte: perte ?? '',
+    // Chaîne vide (pas "{}") tant qu'aucune réponse n'est cochée, pour que brouillonEstVide() détecte
+    // correctement un formulaire encore vierge.
+    choix: Object.keys(choix).length > 0 ? JSON.stringify(choix) : '',
+  });
 
   const questionnaire = mode === 'Questionnaire';
   const pointsParQuestion = Object.fromEntries(
@@ -98,6 +126,7 @@ export default function SaisiePersonneAgee() {
       try {
         const resultat = await effectuerDepistage('personne_agee', mesure, options);
         setErreurs({});
+        await effacerBrouillon('personne_agee');
         router.replace({ pathname: '/resultat', params: paramsResultat('personne_agee', resultat) });
       } catch (e) {
         const { erreurs: nouvelles, general } = erreurPourFormulaire(e, LIBELLES_CHAMPS);
@@ -112,6 +141,7 @@ export default function SaisiePersonneAgee() {
       <ScrollView contentContainerStyle={styles.defilement} keyboardShouldPersistTaps="handled">
         <View style={styles.conteneur}>
         <BanniereErreur message={erreurGenerale} />
+        {brouillonInitial ? <Text style={styles.brouillonRepris} testID="brouillon-repris">Brouillon repris automatiquement.</Text> : null}
 
         <ChampNumerique
           testID="champ-code"
@@ -194,4 +224,5 @@ const creerStyles = (t: Echelle) =>
     erreur: { color: couleurs.erreur, fontSize: t.police.aide, fontWeight: '600', marginBottom: t.espace.m },
     score: { backgroundColor: couleurs.carte, borderColor: couleurs.bordure, borderWidth: t.trait / 2, borderRadius: t.rayon.m, padding: t.espace.m, marginBottom: t.espace.s },
     scoreTexte: { fontSize: t.police.sousTitre, fontWeight: '700', color: couleurs.texte },
+    brouillonRepris: { color: couleurs.primaire, fontWeight: '600', fontSize: t.police.aide, marginBottom: t.espace.m },
   });

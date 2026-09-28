@@ -54,7 +54,7 @@ const creerStyles = (t: Echelle) =>
       borderColor: couleurs.bordure,
       borderRadius: t.rayon.m,
       backgroundColor: couleurs.carte,
-      paddingHorizontal: t.espace.m,
+      paddingHorizontal: t.espace.l,
       paddingVertical: t.espace.m,
       minHeight: t.cibleTactile,
       fontSize: t.police.sousTitre,

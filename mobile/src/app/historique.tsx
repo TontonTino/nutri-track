@@ -20,7 +20,7 @@ const FILTRES: { valeur: Filtre; libelle: string }[] = [
   { valeur: 'enceinte', libelle: 'Femmes enceintes' },
   { valeur: 'personne_agee', libelle: 'Personnes âgées' },
 ];
-const ACCENT_ATTENTE = '#E08600';
+const ACCENT_ATTENTE = teintes.modere.accent;
 const NOMS_COURTS: Record<Population, string> = { enfant: 'Enfant', enceinte: 'Femme enceinte', personne_agee: 'Personne âgée' };
 
 function formatDate(iso: string): string {
@@ -218,7 +218,7 @@ const creerStyles = (t: Echelle) =>
       paddingVertical: t.espace.s,
       minHeight: t.cibleTactile * 0.75,
       justifyContent: 'center',
-      backgroundColor: '#E9EEEB',
+      backgroundColor: couleurs.primaireDoux,
     },
     pastilleActive: { backgroundColor: couleurs.primaire },
     pastilleTexte: { color: couleurs.texteSecondaire, fontWeight: '600', fontSize: t.police.corps },

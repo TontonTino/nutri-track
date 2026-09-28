@@ -2,7 +2,6 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View } from 'react-native';
 import { BadgeSynchronisation } from '../components/BadgeSynchronisation';
-import { BandeauDemo } from '../components/BandeauDemo';
 import { couleurs } from '../constants/theme';
 import { FournisseurSynchro } from '../data/SynchroContext';
 import { useEchelle } from '../theme/useEchelle';
@@ -23,6 +22,7 @@ export default function RootLayout() {
           }}
         >
           <Stack.Screen name="index" options={{ title: 'NUTRI-DÉPIST' }} />
+          <Stack.Screen name="consentement" options={{ title: 'Consentement' }} />
           <Stack.Screen name="enfant" options={{ title: 'Dépistage — Enfant' }} />
           <Stack.Screen name="femme-enceinte" options={{ title: 'Dépistage — Femme enceinte' }} />
           <Stack.Screen name="personne-agee" options={{ title: 'Dépistage — Personne âgée' }} />
@@ -35,7 +35,6 @@ export default function RootLayout() {
           <Stack.Screen name="vision/echec" options={{ headerShown: false }} />
         </Stack>
         <BadgeSynchronisation />
-        <BandeauDemo />
       </View>
     </FournisseurSynchro>
   );

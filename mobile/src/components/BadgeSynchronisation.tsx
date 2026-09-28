@@ -1,6 +1,7 @@
 // Indicateur discret « en attente de synchronisation » (logique de Rasmata, mise en forme proportionnelle à l'écran).
 // Ne bloque jamais l'utilisateur et disparaît dès que la file est vide.
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { couleurs } from '../constants/theme';
 import { useSynchro } from '../data/SynchroContext';
 import type { Echelle } from '../theme/echelle';
 import { useStyles } from '../theme/useEchelle';
@@ -11,7 +12,7 @@ export function BadgeSynchronisation() {
   if (!nombreEnAttente && !enSynchronisation) return null;
   return (
     <View style={styles.conteneur} accessibilityLiveRegion="polite" testID="badge-synchronisation">
-      {enSynchronisation ? <ActivityIndicator size="small" color="#6B5E3C" style={styles.spinner} /> : null}
+      {enSynchronisation ? <ActivityIndicator size="small" color={couleurs.primaireFonce} style={styles.spinner} /> : null}
       <Text style={styles.texte}>
         {enSynchronisation
           ? 'Synchronisation en cours…'
@@ -27,12 +28,12 @@ const creerStyles = (t: Echelle) =>
       flexDirection: 'row',
       alignItems: 'center',
       alignSelf: 'center',
-      backgroundColor: '#EFEDE6',
+      backgroundColor: couleurs.primaireDoux,
       borderRadius: t.rayon.l * 2,
       paddingVertical: t.espace.xs,
       paddingHorizontal: t.espace.m,
       marginVertical: t.espace.s,
     },
     spinner: { marginRight: t.espace.s },
-    texte: { fontSize: t.police.aide, color: '#6B5E3C', fontWeight: '600' },
+    texte: { fontSize: t.police.aide, color: couleurs.primaireFonce, fontWeight: '600' },
   });

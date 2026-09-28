@@ -3,10 +3,13 @@
 // référence — suivi rapproché recommandé ») : jamais un diagnostic.
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BanniereErreur } from '../components/BanniereErreur';
 import { BoutonPrincipal } from '../components/BoutonPrincipal';
 import { ChampNumerique } from '../components/ChampNumerique';
+import { couleurs } from '../constants/theme';
+import { consommerBrouillonAAppliquer, effacerBrouillon } from '../data/brouillon';
+import { useSauvegardeBrouillon } from '../data/useSauvegardeBrouillon';
 import { effectuerDepistage, paramsResultat } from '../services/depistage';
 import { useEnvoiUnique } from '../services/useEnvoiUnique';
 import { dateDuJour, dateValide, type Erreurs, erreurPourFormulaire, versEntier, versNombre } from '../services/formulaire';
@@ -24,14 +27,18 @@ const LIBELLES_CHAMPS: Record<string, string> = {
 
 export default function SaisieFemmeEnceinte() {
   const styles = useStyles(creerStyles);
-  const [patiente, setPatiente] = useState('');
-  const [dateCpn, setDateCpn] = useState(dateDuJour());
-  const [sa, setSa] = useState('');
-  const [hu, setHu] = useState('');
-  const [pb, setPb] = useState('');
+  // Brouillon éventuel proposé par l'écran de consentement (voir data/brouillon.ts) : consommé une seule fois.
+  const [brouillonInitial] = useState(() => consommerBrouillonAAppliquer());
+  const [patiente, setPatiente] = useState(brouillonInitial?.identifiant ?? '');
+  const [dateCpn, setDateCpn] = useState(brouillonInitial?.champs.dateCpn ?? dateDuJour());
+  const [sa, setSa] = useState(brouillonInitial?.champs.sa ?? '');
+  const [hu, setHu] = useState(brouillonInitial?.champs.hu ?? '');
+  const [pb, setPb] = useState(brouillonInitial?.champs.pb ?? '');
   const [erreurs, setErreurs] = useState<Erreurs>({});
   const [erreurGenerale, setErreurGenerale] = useState<string | null>(null);
   const { chargement: envoiEnCours, lancer } = useEnvoiUnique();
+
+  useSauvegardeBrouillon('enceinte', patiente, { dateCpn, sa, hu, pb });
 
   const saNombre = versEntier(sa);
   const horsFenetre = saNombre !== null && (saNombre < 20 || saNombre > 34);
@@ -77,6 +84,7 @@ export default function SaisieFemmeEnceinte() {
       try {
         const resultat = await effectuerDepistage('enceinte', mesure, options);
         setErreurs({});
+        await effacerBrouillon('enceinte');
         router.replace({ pathname: '/resultat', params: paramsResultat('enceinte', resultat) });
       } catch (e) {
         const { erreurs: nouvelles, general } = erreurPourFormulaire(e, LIBELLES_CHAMPS);
@@ -91,6 +99,7 @@ export default function SaisieFemmeEnceinte() {
       <ScrollView contentContainerStyle={styles.defilement} keyboardShouldPersistTaps="handled">
         <View style={styles.conteneur}>
         <BanniereErreur message={erreurGenerale} />
+        {brouillonInitial ? <Text style={styles.brouillonRepris} testID="brouillon-repris">Brouillon repris automatiquement.</Text> : null}
 
         <ChampNumerique
           testID="champ-patiente"
@@ -151,4 +160,5 @@ const creerStyles = (t: Echelle) =>
     flex: { flex: 1 },
     defilement: { flexGrow: 1, alignItems: 'center' },
     conteneur: { width: '100%', maxWidth: t.contenuMax, padding: t.espace.l, paddingBottom: t.espace.xl * 1.5 },
+    brouillonRepris: { color: couleurs.primaire, fontWeight: '600', fontSize: t.police.aide, marginBottom: t.espace.m },
   });

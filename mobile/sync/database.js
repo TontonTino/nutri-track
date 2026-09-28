@@ -20,17 +20,32 @@
 
 import * as SQLite from 'expo-sqlite';
 
-let dbPromise = null;
+// Une seule promesse mémoïsée pour l'ouverture + la création du schéma : tout
+// appelant (getDb() seul ou initDatabase()) attend la même initialisation
+// complète, pour ne jamais interroger une base dont les tables n'existent
+// pas encore (ordre d'appel fragile sinon).
+let initPromise = null;
+
+function ensureInit() {
+  if (!initPromise) {
+    initPromise = ouvrirEtInitialiser().catch((err) => {
+      initPromise = null;
+      throw err;
+    });
+  }
+  return initPromise;
+}
 
 export function getDb() {
-  if (!dbPromise) {
-    dbPromise = SQLite.openDatabaseAsync('nutri_depist.db');
-  }
-  return dbPromise;
+  return ensureInit();
 }
 
 export async function initDatabase() {
-  const db = await getDb();
+  return ensureInit();
+}
+
+async function ouvrirEtInitialiser() {
+  const db = await SQLite.openDatabaseAsync('nutri_depist.db');
 
   await db.execAsync(`
     PRAGMA journal_mode = WAL;

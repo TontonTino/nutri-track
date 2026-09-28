@@ -10,9 +10,10 @@ import { ChampNumerique } from '../components/ChampNumerique';
 import { analyserPhoto, supprimerPhoto } from '../brassard/analyse';
 import { type AnalyseCouleur, controleCouleur, NOM_ZONE, type ZoneBrassard, zoneDepuisPb } from '../brassard/couleur';
 import { definirLecture } from '../brassard/lecture';
-import { couleurs } from '../constants/theme';
+import { couleurs, teintes } from '../constants/theme';
 import { versNombre } from '../services/formulaire';
 import { verifierPlages } from '../services/plages';
+import { carteDouce } from '../theme/carte';
 import type { Echelle } from '../theme/echelle';
 import { useEchelle, useStyles } from '../theme/useEchelle';
 
@@ -148,11 +149,13 @@ export default function LectureBrassardEcran() {
           <Text style={styles.titreSombre}>Valeur lue sur le brassard</Text>
           {photo ? <Image source={{ uri: photo.uri }} style={styles.miniature} resizeMode="cover" accessibilityLabel="Photo du brassard" /> : null}
 
-          <View style={styles.ligne}>
-            <Text style={styles.etiquette}>Couleur vue sur la photo</Text>
-            {detectee ? <Pastille zone={detectee} libelle={NOM_ZONE[detectee]} /> : <Text style={styles.neutre}>non détectée</Text>}
+          <View style={styles.carte}>
+            <View style={styles.ligne}>
+              <Text style={styles.etiquette}>Couleur vue sur la photo</Text>
+              {detectee ? <Pastille zone={detectee} libelle={NOM_ZONE[detectee]} /> : <Text style={styles.neutre}>non détectée</Text>}
+            </View>
+            {erreurPhoto ? <Text style={styles.neutre}>{erreurPhoto}</Text> : null}
           </View>
-          {erreurPhoto ? <Text style={styles.neutre}>{erreurPhoto}</Text> : null}
 
           <ChampNumerique
             testID="champ-lecture-brassard"
@@ -168,7 +171,7 @@ export default function LectureBrassardEcran() {
           />
 
           {zoneSaisie ? (
-            <View style={styles.ligne}>
+            <View style={[styles.carte, styles.ligne]}>
               <Text style={styles.etiquette}>Cette valeur correspond à la zone</Text>
               <Pastille zone={zoneSaisie} libelle={NOM_ZONE[zoneSaisie]} />
             </View>
@@ -228,15 +231,16 @@ const creerStyles = (t: Echelle) =>
     lecture: { flexGrow: 1, alignItems: 'center' },
     colonne: { width: '100%', maxWidth: t.contenuMax, paddingHorizontal: t.espace.l, gap: t.espace.m },
     titreSombre: { fontSize: t.police.titre, fontWeight: '800', color: couleurs.texte },
-    miniature: { width: '100%', aspectRatio: 2, borderRadius: t.rayon.m, backgroundColor: '#DDDDDD' },
+    miniature: { width: '100%', aspectRatio: 2, borderRadius: t.rayon.l, backgroundColor: '#DDDDDD' },
+    carte: { ...carteDouce(t), padding: t.espace.l },
     ligne: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: t.espace.m },
     etiquette: { fontSize: t.police.corps, color: couleurs.texteSecondaire, flexShrink: 1 },
-    neutre: { fontSize: t.police.aide, color: couleurs.texteSecondaire },
+    neutre: { fontSize: t.police.aide, color: couleurs.texteSecondaire, marginTop: t.espace.xs },
     pastille: { borderRadius: t.rayon.l * 2, paddingHorizontal: t.espace.l, paddingVertical: t.espace.xs },
     pastilleTexte: { fontSize: t.police.corps, fontWeight: '800', textTransform: 'uppercase' },
-    alerte: { backgroundColor: '#FFF4E0', borderColor: '#EF6C00', borderWidth: t.trait / 2, borderRadius: t.rayon.m, padding: t.espace.m },
-    alerteTexte: { color: '#8A4B00', fontSize: t.police.corps, fontWeight: '600' },
-    ok: { fontSize: t.police.corps, color: '#2E7D32', fontWeight: '700' },
+    alerte: { backgroundColor: teintes.modere.fond, borderColor: teintes.modere.accent, borderWidth: t.trait / 2, borderRadius: t.rayon.m, padding: t.espace.m },
+    alerteTexte: { color: teintes.modere.texte, fontSize: t.police.corps, fontWeight: '600' },
+    ok: { fontSize: t.police.corps, color: teintes.normal.accent, fontWeight: '700' },
     fondCamera: { flex: 1, backgroundColor: '#000000' },
     hautCamera: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: t.espace.l, gap: t.espace.m },
     annuler: { alignSelf: 'flex-start', paddingVertical: t.espace.s, paddingRight: t.espace.l, minHeight: t.cibleTactile, justifyContent: 'center' },

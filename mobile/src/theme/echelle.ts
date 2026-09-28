@@ -63,7 +63,7 @@ export function calculerEchelle(largeur: number, hauteur: number): Echelle {
       emoji: e(44),
     },
     espace: { xs: e(4), s: e(8), m: e(12), l: e(18), xl: e(28) },
-    rayon: { s: e(8), m: e(12), l: e(18) },
+    rayon: { s: e(10), m: e(16), l: e(24) },
     trait: e(2),
     cibleTactile: e(52),
     contenuMax: classe === 'large' ? Math.min(l, e(520)) : l,
